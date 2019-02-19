@@ -1,0 +1,3025 @@
+
+
+//可替换图标。图标可存放在C:\Users\tym-05\Documents\maya\2013-x64\prefs\icons
+
+//正在不断更新中
+//v3.8 已更新添加了物体烘培工具 2014-12-13
+//v3.74已更新拍屏参数显示，添加每秒帧数，修正了取消显示 2014-08-27
+//v3.73.5已更新添加了物体关联复制批量替换 2014-07-10
+//v3.73已更新添加了物体批量替换 2014-07-09
+//v3.72已更新拍屏参数值只显示safe action 2014-07-04
+//v3.71已修正匹配点bug，添加单轴向匹配
+//v3.7已更新添加创建mix材质球 
+//v3.6已修正拍屏显示后出现的爆红现象 2014-01-14
+//v3.6已更新毛发动力学骨骼烘培帧 2014-01-14
+//v3.5已更新拍屏参数显示 2013-11-19
+//v3.4已更新UV批量传递 2013-9-17
+//v3.3已更新自动创建景深层设置2013-08-15
+//v3.2已更新一键reload所有贴图2013-08-14
+//v3.1已更新自动摄像机链接天光系统2013-08-13
+//v3.0已更新摄像机链接笔刷目标约束  2013-08-10
+//v2.5已更新植物笔刷uv分格  2013-08-9
+//v2.1已更新伽马自动校正   2013-08-9
+//v2.0已更新outmesh链接工具 2013-08-7
+//v1.8已更新选点匹配功能 2013-08-6
+//v1.7已更新添加dkAnim汉化版（导出动画）插件2013-08-5
+//v1.5已更新添加镜像表情，权重复制。2013-08-5
+//v1.2已更新匹配点 2013-08-4
+//v1.0已更新添加了uv传递 2013-08-3
+
+//拍屏参数
+global proc string zwHeadsUpDisplayGlobalResolution()
+{
+	int $resolutionWidth = `getAttr "defaultResolution.width"`;
+	int $resolutionHeight = `getAttr defaultResolution.height`;
+	string $str = $resolutionWidth + "*" + $resolutionHeight;
+
+	return $str;
+}
+
+
+global proc string zwHeadsUpDisplayUser()
+{
+	string $buf[];
+	clear $buf;
+	string $user = "";
+	string $name = `file -query -sceneName`;
+	tokenize $name "/" $buf;
+	string $filename = $buf[size($buf)-1];
+	if (`gmatch $filename "sy_*"`)
+		$user = "";
+	// here when scene starts with "sy_*",user=null
+	// maybe this is a special consideration in Shenzhen
+	// we can ignore the code above
+	else {
+		$user = `getenv USERNAME`;
+		$user = `tolower $user`;
+	}
+	return $user;
+}
+
+global proc string zwHeadsUpDisplayUser1()
+{
+	string $cmd = "date /t";
+	chdir "C:";
+	string $date = `system $cmd`;
+    $date = `substring $date 1 10`;
+    $cmd = "time";
+    string $time   = `system $cmd`;
+    $time = `substring $time 6 11`;
+	string $dateTime = strip($date) + " " + $time;
+
+	return $dateTime;
+}
+
+global proc float zwHeadsUpDisplayStart()
+{
+	float $start;
+
+	if (`optionVar -query playblastUseStartEnd`)
+		$start = `optionVar -q playblastStartTime`;
+	else
+		$start = `playbackOptions -q -minTime`;
+
+	return $start;
+}
+
+global proc float zwHeadsUpDisplayEnd()
+{
+	float $end;
+
+	if (`optionVar -query playblastUseStartEnd`)
+		$end = `optionVar -q playblastEndTime`;
+	else
+		$end = `playbackOptions -q -maxTime`;
+
+	return $end;
+}
+
+global proc int zwHeadsUpDisplayTotal()
+{
+	float $start = `zwHeadsUpDisplayStart`;
+	float $end = `zwHeadsUpDisplayEnd`;
+	int $total = $end - $start + 1;
+
+	return $total;
+}
+
+/*
+global proc string zwHeadsUpDisplayFrame()
+{
+	float $currentTime = `currentTime -query`;
+	float $start = `zwHeadsUpDisplayStart`;
+	int $total = `zwHeadsUpDisplayTotal`;
+	string $frame = $currentTime + "   (" + ($currentTime -  $start + 1) + "/" + $total + ")";
+
+	return $frame;
+}
+*/
+
+global proc string zwHeadsUpDisplayFrame()
+{
+	float $currentTime = `currentTime -query`;
+
+	return $currentTime;
+}
+
+global proc string zwHeadsUpDisplaySequence()
+{
+	float $currentTime = `currentTime -query`;
+	float $start = `zwHeadsUpDisplayStart`;
+	int $total = `zwHeadsUpDisplayTotal`;
+	int $sequence = $currentTime -  $start + 1;//) + "/" + $total;
+	string $str = $sequence + "/" + $total;
+	int $size = size("" + $total) - size("" + $sequence);
+	for ($i=0; $i<$size; $i++)
+		$str = "0" + $str;
+
+	return $str;
+}
+
+global proc float zwHeadsUpDisplayFocalLength(string $camera)
+{
+	float $focalLength;
+	if (`objExists $camera`)
+		$focalLength = `getAttr ($camera + ".focalLength")`;
+
+	return $focalLength;
+}
+
+global proc string zwHeadsUpDisplayCamera()
+{
+	string $modelPanel = `getPanel -withFocus`;
+	string $camera = `modelEditor -query -camera $modelPanel`;
+	string $cameraName = `basenameEx $camera`;
+	return $cameraName;
+}
+
+global proc string apbspeed()
+{
+    string $apbs=`animationDetailsPlaybackSpeed`;
+	return $apbs;
+}
+
+
+
+
+
+
+global proc string zhenshupd()
+{
+string $zspd=`currentUnit -query -time`;
+
+string $zhenshu;
+if($zspd=="film")
+{
+$zhenshu = "Film(24fps)错误";
+}
+else if($zspd=="pal")
+{
+$zhenshu = "Pal(25fps)正确";
+    
+    
+}
+else
+{
+$zhenshu = "帧数设置错误";
+    
+    
+}
+return $zhenshu;
+}
+
+
+
+
+// zwHeadsUpDisplayRemove();
+global proc zwHeadsUpDisplayRemove()
+{	
+ 
+	
+	global string $zwHeadsUpDisplay;
+
+	string $buf[] = `headsUpDisplay -listHeadsUpDisplays`;
+	for ($headsUpDisplay in $buf)
+		headsUpDisplay -remove $headsUpDisplay;
+		
+	$buf = `ls -type "expression" "zwHeadsUpDisplay*"`;
+	if (size($buf))
+		delete $buf;
+	
+	
+	
+		evalDeferred("source initAfter.mel");
+		catch (`eval $zwHeadsUpDisplay`);
+		$zwHeadsUpDisplay = "";
+
+
+	
+}
+
+global proc zwHeadsUpDisplayRemove1()
+{	
+   
+	
+	global string $zwHeadsUpDisplay;
+
+	string $buf[] = `headsUpDisplay -listHeadsUpDisplays`;
+	for ($headsUpDisplay in $buf)
+		headsUpDisplay -remove $headsUpDisplay;
+		
+	$buf = `ls -type "expression" "zwHeadsUpDisplay*"`;
+	if (size($buf))
+		delete $buf;
+	
+	
+}
+
+proc shezhipal()
+{
+currentUnit -t pal; 
+int $start = `playbackOptions -q -minTime`; 
+playbackOptions -min $start;  
+}
+
+global proc int zwHeadsUpDisplay()
+{
+	global string $zwHeadsUpDisplay;
+
+	float $space = 84.0;
+
+	zwHeadsUpDisplayRemove1;
+
+
+// get camera
+	string $modelPanel = `getPanel -withFocus`;
+	if (`getPanel -typeOf $modelPanel` != "modelPanel")
+		error "请点击一下当前视图";
+	string $camera = `modelEditor -query -camera $modelPanel`;
+	string $cameraName = `basenameEx $camera`;
+	if (`nodeType $camera` != "camera")
+	{
+		string $buf[] = `listRelatives -fullPath -shapes $camera`;
+		$camera = $buf[0];
+	}
+	
+	// if resolution gate is displayed , the rez will show at section 2
+	// so we can temporarily disable it and store the command in a global var
+	// when we remove custom HUD after playblast, we can set it back
+	if (`getAttr ($camera + ".displayResolution")`)
+	{
+		setAttr ($camera + ".displayResolution") 0;
+		$zwHeadsUpDisplay += "setAttr " + $camera + ".displayResolution true;\n";
+	}
+                setAttr ($cameraName + ".displayFilmGate") 0;
+                setAttr ($cameraName + ".displayResolution") 0;
+		setAttr ($cameraName + ".displayGateMask") 0;
+		setAttr ($cameraName + ".displayFieldChart") 0;
+		setAttr ($cameraName + ".displaySafeAction") 1;
+                setAttr ($cameraName + ".displaySafeTitle") 0;
+
+	headsUpDisplay -section 2 -block 0  -atr -labelFontSize "large" -dataFontSize "large"  -command "zwHeadsUpDisplayUser" zwHeadsUpDisplayUser;
+	headsUpDisplay -section 4 -block 0 -labelFontSize "large" -dataFontSize "large" -blockAlignment "right" -event "timeChanged" -command "zwHeadsUpDisplayUser1" zwHeadsUpDisplayUser1;
+	//headsUpDisplay -section 0 -block 0 -labelFontSize "large" -dataFontSize "large" -preset "cameraNames" zwHeadsUpDisplayCameraNames;
+	headsUpDisplay -section 0 -block 0 -labelFontSize "large" -dataFontSize "large" -c  "zwHeadsUpDisplayCamera" -atr zwHeadsUpDisplayCameraNames;
+	headsUpDisplay -section 4 -block 1 -labelFontSize "large" -dataFontSize "large" -blockAlignment "right" -label "焦距:" -event "timeChanged" -command ("zwHeadsUpDisplayFocalLength \"" + $camera + "\"") zwHeadsUpDisplayFocalLength;
+
+	headsUpDisplay -section 5 -block 1 -labelFontSize "large" -dataFontSize "large" -label "当前帧:" -event "timeChanged" -command "zwHeadsUpDisplayFrame" zwHeadsUpDisplayFrame;
+	headsUpDisplay -section 7 -block 1 -labelFontSize "large" -dataFontSize "large" -label "帧范围:" -event "timeChanged" -command "zwHeadsUpDisplaySequence" zwHeadsUpDisplaySequence;
+	headsUpDisplay -section 5 -block 0 -labelFontSize "large" -dataFontSize "large" -label "开始:" -event "timeChanged" -command "zwHeadsUpDisplayStart" zwHeadsUpDisplayStart;
+	headsUpDisplay -section 7 -block 0 -labelFontSize "large" -dataFontSize "large" -label "结束:" -event "timeChanged" -command "zwHeadsUpDisplayEnd" zwHeadsUpDisplayEnd;
+	headsUpDisplay -section 9 -block 0 -labelFontSize "large" -dataFontSize "large" -blockAlignment "right" -label "总帧数:" -event "timeChanged" -command "zwHeadsUpDisplayTotal" zwHeadsUpDisplayTotal;
+	
+	headsUpDisplay -section 9 -block 1 -atr -labelFontSize "large" -dataFontSize "large" -label "分辨率:"-command "zwHeadsUpDisplayGlobalResolution" zwHeadsUpDisplayGlobalResolution;
+headsUpDisplay -section 8 -block 0 -labelFontSize "large" -dataFontSize "large" -blockAlignment "right" -label "播放速度:" -event "timeChanged" -command "apbspeed" apbspeed;
+headsUpDisplay -section 8 -block 1 -labelFontSize "large" -dataFontSize "large" -blockAlignment "right" -label "每秒帧数:" -event "timeChanged" -command "zhenshupd" zhenshupd;
+
+
+	//headsUpDisplay -q -lh;
+	//headsUpDisplay -rem zwHeadsUpDisplayUser;
+
+ 
+	// create expressions
+	string $script = "// Created by Playblast, HuangZhongwei R&D IDMT\n\n";
+	$script += "headsUpDisplay -refresh zwHeadsUpDisplayFrame;\n";
+	$script += "headsUpDisplay -refresh zwHeadsUpDisplaySequence;\n";
+	$script += "headsUpDisplay -refresh zwHeadsUpDisplayFocalLength;";
+	expression -string $script -name "zwHeadsUpDisplay";
+
+	return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+//dkanim汉化版
+global proc dkAnimch ( )
+{
+	if (`window -ex  dkAnim`)
+    		deleteUI dkAnim;
+    	if (`window -ex  dkAnim_channels`)
+    		deleteUI dkAnim_channels;
+	
+
+	window -s 0 -ip  -in "dkAnim" -w 600 -h 495 -title "dkAnim0.97汉化版（角色动画导出）" dkAnim;
+	
+	
+	columnLayout -co left 10 -rs 10;
+		frameLayout -borderVisible true -labelVisible true -li 10 -h 125 -w 575 -labelAlign "center" -label "导出设置" -marginWidth 5 -marginHeight 5 ;
+			columnLayout -rs 5;
+				rowColumnLayout -nc 2 -cw 1 500 -cw 2 50 -cs 2 5 ;
+					textField -text "导出文件命名，建议用text格式" -ed 1 dk_outname;
+					button -label "保存路径" -c "dk_browse_output 0";
+					setParent ..;
+				checkBox -v 1 -label " 保存历史" dk_hierarchy;	
+				button -label "输出动画" -w 560 -c "dk_animWrite `textField -q -text dk_outname` `checkBox -q -v dk_hierarchy`" ;	
+				setParent ..;
+			setParent ..;
+		setParent ..;
+		frameLayout -borderVisible true -labelVisible true -li 10 -h 310 -w 575 -labelAlign "center" -label "导入设置" -marginWidth 5 -marginHeight 5 ;
+			columnLayout -rs 5;
+				rowColumnLayout -nc 2 -cw 1 500 -cw 2 50 -cs 2 5 ;
+					textField -text "导入文件" -cc "dk_setRefresh 0" dk_inname  ;
+					button -label "打开文件" -c "dk_browse_output 1";
+					setParent ..;
+				separator -height 10 -w 565 -style "out";	
+				rowColumnLayout -nc 1 -cs 1 30 -cw 1 550;
+					checkBox -al "left" -v 0 -label "使用查找替换" -cc "dk_setRefresh 1" dk_doReplace;
+					rowColumnLayout -nc 2 -cw 1 250 -cw 2 260 -cs 2 0 ;
+ 						textFieldGrp  -cw 1 90 -cw 2 160 -label "查找:" -cc "dk_setRefresh 1" dk_search;
+						textFieldGrp -cw 1 100 -cw 2 160 -label "替换:" -cc "dk_setRefresh 1"  dk_replace;
+						setParent ..;
+					setParent ..;
+					
+				separator -height 5 -w 565 -style "out";			
+				columnLayout -rs 5;
+					rowColumnLayout -nc 2 -cs 1 20 -cw 1 300 -cw 2 175 -cs 2 0 ;
+						textFieldGrp -cw 1 100 -cw 2 160 -label "添加前缀名:" -cc "dk_setRefresh 1" dk_prefix;
+						checkBox -v 0 -label "仅添加至顶部节点" -cc "dk_setRefresh 1" dk_topNodes;
+						setParent ..;	
+					setParent ..;
+					
+				separator -height 5 -w 565 -style "out";			
+				columnLayout -rs 5;
+					rowColumnLayout -nc 2 -cw 1 290 -cw 2 175 -cs 2 0 -cs 1 30;
+						checkBox -al "left" -v 1 -label "载入确认的节点路径" -cc "dk_setRefresh 1" dk_paths;
+						checkBox -v 0 -label "载入未K帧的属性" -cc "dk_setRefresh 0" dk_unKeyed;
+						setParent ..;
+							
+					setParent ..;
+					
+					separator -height 5 -w 565 -style "out";
+					rowColumnLayout -cs 1 30 -cw 1 290 -cw 2 200 -nc 2 ;
+						checkBox -label "限制通道范围" -al "left" dk_useChannels;
+						button -label "定义通道范围"  -c dk_channels;
+						setParent ..;
+					separator -height 5 -w 565 -style "out";
+					button -label "导入动画" -w 560 -c "dk_animRead `textField -q -text dk_inname` `checkBox -q -v dk_paths`" ;	
+					
+				setParent ..;
+			setParent ..;
+		setParent ..;
+		
+		
+	showWindow dkAnim;
+	window -e -w 600 -h 495 dkAnim;
+	
+	
+	
+}
+
+global proc dk_setRefresh (int $keep_selection)
+{
+	global int $DKANIM_REFRESH_KEEP;
+	global int $DKANIM_REFRESH;
+	$DKANIM_REFRESH = 1;
+	$DKANIM_REFRESH_KEEP = $keep_selection;
+
+	if (`window -ex  dkAnim_channels`)
+		dk_updateChanLabel;
+}
+
+global proc dk_channels ()
+{
+global int $DKANIM_REFRESH;
+
+	if (`window -ex  dkAnim_channels`)
+	{
+		if($DKANIM_REFRESH == 1)
+			dk_loadChannels;
+
+	}
+	else
+	{
+		window -ret -ip  -in "Channels" -w 375 -h 400 -title "Channels" dkAnim_channels;
+			scrollLayout -horizontalScrollBarThickness 16 -verticalScrollBarThickness 16 -rc dk_resize_chanList dk_scroll_layout;
+				columnLayout -rs 5 ;
+					rowColumnLayout  -cs 2 5 -cs 3 5  -cw 1 75 -cw 2 75  -cw 3 150 -nc 3 ;
+						button -label "A添加" -c "dk_matchChannels 1";
+						button -label "移除" -c "dk_matchChannels 0";
+						textField -tx "*" dk_wildCard;
+						setParent ..;
+					rowColumnLayout  -cs 2 5  -cw 1 100 -cw 2 250  -nc 2 ;
+						button -label "重置" -c "dk_loadChannels";
+						text -label "1000 通道范围" dk_chanLabel;
+					setParent ..;
+					textScrollList -h (`scrollLayout -q -h dk_scroll_layout`-60) -allowMultiSelection true -sc dk_updateChanLabel dk_chanList;
+					
+				
+		dk_loadChannels;
+		window -e -w 375 -h 400 dkAnim_channels;
+		dk_matchChannels 1;
+	
+		
+	}
+	
+	showWindow dkAnim_channels;	
+	dk_resize_chanList;
+}
+
+
+global proc dk_resize_chanList()
+{
+
+string $filteredNames[];
+textScrollList -e -nr `textScrollList -q -ni dk_chanList` dk_chanList;
+textScrollList -e  -a "tempSizerLine"  dk_chanList;
+textScrollList -e  -ri "tempSizerLine"  dk_chanList;
+if(`textScrollList -q -w dk_chanList` < `scrollLayout -q -w dk_scroll_layout`)
+	textScrollList -e  -w (`scrollLayout -q -w dk_scroll_layout` -25)  dk_chanList;
+
+
+}
+
+
+global proc dk_updateChanLabel()
+{
+	global int $DKANIM_REFRESH;
+	global int $DKANIM_REFRESH_KEEP;
+	int $num = `textScrollList -q -nsi dk_chanList`;
+	string $s = "s";
+	string $state = "Refreshed";
+
+	if($num == 1)
+		$s = "";
+
+	if($DKANIM_REFRESH)
+		$state = "Refresh Needed";
+
+	text -e -label ($num + " Channel" + $s + " Scoped (" + $state + ")") dk_chanLabel;
+	
+}
+
+
+
+global proc dk_loadChannels( )
+{
+	global int $DKANIM_REFRESH;
+	global int $DKANIM_REFRESH_KEEP;
+	int $size;
+	string $buffer[];
+	string $chan;
+	string $node;
+	string $path = "";
+	int $i;
+	string $filename = `textField -q -text dk_inname`;
+	int $test = filetest("-r",$filename);
+	int $selected[] = `textScrollList -q -sii dk_chanList`;
+
+	textScrollList -e -w 10 -h 10 -vis 0 -m 0  dk_chanList;
+	print "\nLoading Channel List...\n";
+
+	if(!$test)
+	{
+		textScrollList -e -w 10 -h 10 -vis 0 -m 0 -ra dk_chanList;
+		//$confirm = `confirmDialog -title "Warning" -message "File Doesn't Exist" -button "Ok" -defaultButton "Ok" -cancelButton "Ok" -dismissString "Ok"`;
+	}
+	else
+	{
+		textScrollList -e -w 10 -h 10 -vis 0 -m 0 -ra dk_chanList;
+		
+		int $fileID = fopen( $filename, "r+" ); 	
+		while (!feof($fileID))
+		{
+			
+			$line = fgetline($fileID);
+			$size = tokenize ($line," ",$buffer); 
+
+			if (size($line) > 0)
+			{
+				if (`substring $line 1 5` == "anim " || `substring $line 1 7` == "static ")
+				{
+					if($size == 7 || $size == 6)
+					{
+					
+						if (`substring $line 1 5` == "anim " || (`substring $line 1 7` == "static " && `checkBox -q -v dk_unKeyed`))
+						{
+							$filteredNames = dk_filter_nodes($line,`checkBox -q -v dk_paths`);
+						
+						
+							$node = $filteredNames[2];
+							$chan = $filteredNames[3];
+
+							textScrollList -e -a ($node + "." + $chan) -w 10 -h 10 -vis 0 -m 0  dk_chanList;
+						}
+					
+					}
+					
+				}
+			
+			}
+			
+		}
+	
+	fclose($fileID);
+	}
+$DKANIM_REFRESH = 0;
+
+if($DKANIM_REFRESH_KEEP == 1)
+{
+	for ($item in $selected)
+		textScrollList -e -sii $item dk_chanList;
+}	
+	
+
+
+textScrollList -e  -w 10 -h 10 -vis 1 -m 1  dk_chanList;
+$DKANIM_REFRESH_KEEP = 1;
+dk_updateChanLabel;
+dk_resize_chanList;
+print "\nDone Loading Channel List\n";
+
+}
+
+
+global proc dk_matchChannels (int $mode)
+{
+
+	int $loop = 1;
+	int $total = `textScrollList -q -ni dk_chanList`;
+	string $all_items[] = `textScrollList -q -ai  dk_chanList`;
+	string $text = `textField -q -tx dk_wildCard` ;
+	while ($loop<=$total)
+		{
+		if (gmatch($all_items[$loop-1],$text))
+			if($mode)
+				textScrollList -e -sii $loop  dk_chanList;
+			else 
+				textScrollList -e -dii $loop  dk_chanList;
+		$loop++;
+		}
+dk_updateChanLabel;
+}
+
+
+
+global proc dk_browse_output( int $field )
+{
+	string $file;
+	if ($field == 0)
+	{
+		if (`getenv("OS")` == "Windows_NT")
+			fileBrowserDialog -m 1 -fc "dk_edit_output" -ft "text" -an "Save";
+		else 
+		{
+			$file = `fileDialog`; 
+			textField  -e -tx $file dk_outname;
+		}
+	}
+	if ($field == 1)
+	{
+		$file = `fileDialog`; 
+		textField  -e -tx $file dk_inname;
+	}
+}
+
+
+global proc dk_edit_output(string $fileName,string $fileType)
+  {
+		textField  -e -tx $fileName dk_outname;
+  }
+
+
+
+global proc dk_animWrite( string $filename, int $hi ) 
+{
+int $parent = 0;
+string $objects[];
+string $node;
+string $evalme;
+string $chan;
+string $item;
+string $attr;
+string $buffer[];
+string $curAttr;
+int $weighted = 0;
+string $preIn = "constant";
+string $postIn = "constant";
+int $bd;
+string $nodeTemp[];
+int $test;
+string $selected[] = `ls -sl`;
+string $confirm ;
+string $channels[];
+
+
+//Does File Exist?
+	$test = filetest("-r",$filename);
+    
+	if($test)
+		$confirm = `confirmDialog -title "Confirm" -message "File Exists,  Do you want to Overwrite it?" -button "Yes" -button "No" -defaultButton "No" -cancelButton "No" -dismissString "No"`;
+		
+	if($test == 0 || $confirm == "Yes")
+		{
+		print "\nWriting Animation Curves...\n";
+		int $fileID = fopen( $filename, "w" );
+		fprint ($fileID, "#Generated by dkAnim.mel\n#\n#dkAnim written by Daniel Kramer\n#danl_kramer@yahoo.com\n");
+		fprint ($fileID, "#Written out of " + `file -q -sn` + "\n#\n\n");
+	
+		if ($hi)
+			select -hi;
+		
+		
+		$objects = `ls -sl -l`;
+		
+		
+		for ($item in $objects)
+			{
+			$shortItem = `ls -sl $item`;
+	
+			$channels = `listConnections -t animCurve $item`;
+			for ($chan in $channels)
+				{
+				
+				string $connects[] = (`listConnections -p 1 $chan`);
+				$curAttr =  $connects[0];
+
+				int $num = tokenize ($curAttr, ".", $buffer);
+
+				$num = $num - 1;
+				$node = "";
+				for ($i = 0;  $i < $num; $i++)
+				{
+				if($i == 0)
+					$node = $buffer[$i];
+				else
+					$node = $node + "." + $buffer[$i];
+				}
+
+				
+				$nodeTemp = `ls -l $node`;
+
+				$attr = $buffer[$num];
+				$node = $nodeTemp[0];
+			
+				$nodeTemp = `listRelatives -p $node`;		
+
+				if($nodeTemp[0] != "")
+					$parent = 1;
+				else 
+					$parent = 0;
+
+				string $testit[] = `listAnimatable $curAttr`;
+				float $testit2[] = `keyframe -q $chan`;
+				if ($testit[0] != "" && size($testit2))
+					{
+					$evalme = ("getAttr " + $chan + ".preInfinity;");
+			
+					if(`eval $evalme` == 0)
+						$preIn = "constant";
+					if(`eval $evalme` == 1)
+						$preIn = "linear";
+					if(`eval $evalme` == 2)
+						$preIn = "constant";
+					if(`eval $evalme` == 3)
+						$preIn = "cycle";
+					if(`eval $evalme` == 4)
+						$preIn = "cycleRelative";	
+					if(`eval $evalme` == 5)
+						$preIn = "oscillate";	
+			
+					$evalme = ("getAttr " + $chan + ".postInfinity;");
+					$postIn = `eval $evalme`;
+			
+					if(`eval $evalme` == 0)
+						$postIn = "constant";
+					if(`eval $evalme` == 1)
+						$postIn = "linear";
+					if(`eval $evalme` == 2)
+						$postIn = "constant";
+					if(`eval $evalme` == 3)
+						$postIn = "cycle";
+					if(`eval $evalme` == 4)
+						$postIn = "cycleRelative";	
+					if(`eval $evalme` == 5)
+						$postIn = "oscillate";	
+			
+			
+					$evalme = ("getAttr " + $chan + ".weightedTangents;");
+					$weighted = `eval $evalme`;
+			
+					fprint ($fileID, "anim " + $attr + " " + $attr + " " + $node + " " + $parent + " 0 0;\n");
+					fprint ($fileID, "animData {\n");
+					fprint ($fileID, "  weighted " + $weighted + ";\n");
+					fprint ($fileID, "  preInfinity " + $preIn  + ";\n");
+					fprint ($fileID, "  postInfinity " + $postIn + ";\n");
+					fprint ($fileID, "  keys {\n");
+
+					
+					float $keys[] = `keyframe -q $chan`;
+					float $values[]  = `keyframe -q -vc $chan`;
+					string $inTan[] = `keyTangent -q -itt $chan`;
+					string $outTan[] = `keyTangent -q -ott $chan`;
+					int $tanLock[] = `keyTangent -q -lock $chan`;
+					int $weightLock[] = `keyTangent -q -weightLock $chan`;
+					float $breakDown[] = `keyframe -q -breakdown $chan`;
+					float $inAngle[] = `keyTangent -q -inAngle $chan`;
+					float $outAngle[] = `keyTangent -q -outAngle $chan`;
+					float $inWeight[] = `keyTangent -q -inWeight $chan`;
+					float $outWeight[] = `keyTangent -q -outWeight $chan`;
+					
+					for ($i = 0;  $i < size($keys); $i++)
+			  			{
+			  			
+			  			$bd = 0;
+			  			
+			  			for ($bd_item in $breakDown)
+			  			{
+			  				if($bd_item == $keys[$i])
+				    				$bd = 1;
+				    		}
+			  			
+						fprint ($fileID, "    " + $keys[$i] + " " + $values[$i] + " " + $inTan[$i] + " " + $outTan[$i] + " " + $tanLock[$i] + " " + $weightLock[$i] + " " + $bd);
+						if ($inTan[$i] == "fixed")
+				   			fprint ($fileID, " " + $inAngle[$i] + " " + $inWeight[$i]);
+				    			
+						if ($outTan[$i] == "fixed")
+				    			fprint ($fileID, " " + $outAngle[$i] + " " + $outWeight[$i]);
+				    			
+						fprint ($fileID, ";\n");					
+					}
+		
+					fprint ($fileID, "  }\n}\n");
+				}
+			}
+			
+			
+			$staticChans = `listAnimatable $item`;
+			for ($staticChan in $staticChans)
+				{
+				$curAttr =  $staticChan;
+
+				int $num = tokenize ($curAttr, ".", $buffer);
+
+				$num = $num - 1;
+				$node = "";
+				for ($i = 0;  $i < $num; $i++)
+				{
+				if($i == 0)
+					$node = $buffer[$i];
+				else
+					$node = $node + "." + $buffer[$i];
+				}
+
+				
+				$nodeTemp = `ls -l $node`;
+				
+
+				$attr = $buffer[$num];
+				$node = $nodeTemp[0];
+			
+				$nodeTemp = `listRelatives -p $node`;		
+
+				if($nodeTemp[0] != "")
+					$parent = 1;
+				else 
+					$parent = 0;
+
+				
+				$staticChan = ($node + "." + $attr);
+				float $testit[] = `keyframe -q $staticChan`;
+
+				string $connected[] = `listConnections -d 0 $staticChan`;
+		
+				
+				if (size($testit) == 0 && $connected[0] == "")
+				{
+				fprint ($fileID, "static " + $attr + " " + $attr + " " + $node + " " + $parent + " " + `getAttr $staticChan` + "\n");
+				}
+			}
+
+	    	}
+
+fclose $fileID;
+select -cl;
+for ($item in $selected)
+	select -tgl $item;
+	}
+print "\nDone Writing Animation Curves\n";
+}
+
+
+global proc string[] dk_filter_nodes ( string $line, int $paths )
+{
+	global int $DKANIM_REFRESH;
+	string $newPath = "";
+	string $buffer2[];
+	string $buffer[];
+	string $buffer3[];
+	int $pass = 1;
+	string $returnVal[];
+	
+	$size = tokenize ($line," ",$buffer);
+
+	string $search = `textFieldGrp -q -text dk_search`;
+	string $replace = `textFieldGrp  -q -text dk_replace`;
+	if (`checkBox -q -v dk_doReplace` && ($search != ""))
+	{
+		string $match = ("*" + $search + "*");
+		while (`gmatch $buffer[3] $match`)
+			$buffer[3] = `substitute $search $buffer[3] $replace`;
+	}
+
+	string $prefix = `textFieldGrp -q -text dk_prefix`;
+						
+	$newPath = "";
+
+	if ((`checkBox -q -v dk_topNodes` && $buffer[4] == "0") || `checkBox -q -v dk_topNodes` == 0)
+	{
+		if (`gmatch $buffer[3] "*|*"`)
+		{
+			int $count = tokenize($buffer[3],"|",$buffer2);
+								
+			for ($item in $buffer2)
+				$newPath = ($newPath + "|" + $prefix + $item);	
+				$buffer[3] = $newPath;
+		}
+		else 
+			$buffer[3] = ($prefix + "" + $buffer[3]);
+	}
+						
+						
+		
+	if (`checkBox -q -v dk_topNodes` && $buffer[4] == "1")
+	{
+		if (`gmatch $buffer[3] "*|*"`)
+		{
+			int $count = tokenize($buffer[3],"|",$buffer2);
+			for ($i = 0;  $i < size($buffer2); $i++)
+			{
+				if ($i ==0)
+					$newPath = ("|" + $prefix + $buffer2[$i]);
+				else
+					$newPath = ($newPath + "|" + $buffer2[$i]);
+									
+				$buffer[3] = $newPath;
+			}	
+		}	
+		else
+			$buffer[3] = ($buffer[3]);
+	}
+						
+						
+	if ($paths == 0)
+	{
+		int $total  = tokenize($buffer[3],"|",$buffer3);
+		$total = $total - 1;
+		$buffer[3] = $buffer3[$total];
+	}
+
+		
+	if(`checkBox -q -v dk_useChannels` && `window -ex dkAnim_channels` )
+	{
+		//if($DKANIM_REFRESH == 1)
+		//	dk_loadChannels;
+		$pass = 0;
+		int $loop = 1;
+		int $total = `textScrollList -q -nsi dk_chanList`;
+		string $all_items[] = `textScrollList -q -ai dk_chanList`;
+		int $selected[] = `textScrollList -q -sii dk_chanList`;
+		string $text = ($buffer[3] + "." + $buffer[2]) ;
+		while ($loop<=$total)
+		{
+			if (gmatch($all_items[$selected[$loop-1]-1],$text))
+				$pass = 1;
+				
+			$loop++;
+		}
+			
+	}
+
+
+$returnVal = {$buffer[3],$buffer[2],$buffer[3],$buffer[2]};
+
+if ($pass == 0)
+	$returnVal = {"dk_skip","dk_skip",$buffer[3],$buffer[2]};
+
+return $returnVal;
+
+}
+
+
+
+global proc dk_animRead( string $filename, int $paths ) 
+{	
+	global int $DKANIM_REFRESH;
+	float $tan1;
+	float $tan2;
+	float $weight1;
+	float $weight2;
+	string $weighted;
+	string $preI;
+	string $postI;
+	string $attr;
+	string $node;
+	string $line;
+	string $curAttr;
+	string $buffer[];
+	string $buffer2[];
+	string $buffer3[];
+	float $time = 0;
+	float $value = 0;
+	string $inType = "";
+	string $outType = "";
+	int $tanLock = 0;
+	int $weightLock = 0;
+	int $breakDown = 0;
+	string $filteredNames[];
+	string $test2[];
+	
+	
+	string $selected[] = `ls -sl`;
+	
+	int $size;
+	int $endit = 0;
+	
+	int $test = filetest("-r",$filename);
+
+	if(!$test)
+	{
+		$confirm = `confirmDialog -title "Warning" -message "File Doesn't Exist" -button "Ok" -defaultButton "Ok" -cancelButton "Ok" -dismissString "Ok"`;
+	}
+	else
+	{
+		int $fileID = fopen( $filename, "r+" ); 
+		print "\nReading Animation Curves...\n\n";	
+		while (!feof($fileID))
+		{
+			$line = fgetline($fileID); 
+			$weightState = 0;
+			if (size($line) > 0)
+			{
+
+				if (`substring $line 1 5` == "anim " || `substring $line 1 7` == "static ")
+				{
+					$size = tokenize ($line," ",$buffer);
+					if($size == 7 || $size == 6)
+					{
+						
+						if(`checkBox -q -v dk_useChannels` && `window -ex dkAnim_channels` )
+						{
+							if($DKANIM_REFRESH == 1)
+								dk_loadChannels;
+						}
+						
+						$filteredNames = dk_filter_nodes($line,$paths);
+						
+						$curAttr = $filteredNames[0] + "." + $filteredNames[1];
+						$node = $filteredNames[0];
+						$attr = $filteredNames[1];
+						$endit = 0;
+						string $curAttrLong = ($node + "." + $attr);
+					
+						if (`objExists $node`)
+						{
+							$test2 = `ls $curAttrLong`;
+							if (size($test2) > 0)
+							{
+
+
+								if (`substring $line 1 7` == "static " && `checkBox -q -v dk_unKeyed`)
+								{
+						
+								string $connected[] = `listConnections -d 0 $curAttrLong`;
+								if (`getAttr -l $curAttrLong` == 0 && $connected[0] == "")
+									{
+										string $setMe = ("setAttr " + $curAttrLong + " " + $buffer[5] + ";");
+										if(catch(`eval $setMe`))
+											print "Error caught! If possible mail this file to me so I can debug the error: mail danl_kramer@yahoo.com\nmoving on...\n";
+									}
+								else
+									print ("Warning: Attribute is locked - " + $curAttr + "\n");
+ 
+								}
+
+								if (`substring $line 1 5` == "anim ")
+								{
+									
+									while ($endit == 0)
+					 				{
+					    					$line = fgetline($fileID); 
+
+					    					if(`substring $line 3 11` == "weighted ")
+										{
+											if(`substring $line 12 12` == "1")
+						    					{
+						    						
+												$weighted = "keyTangent -edit -weightedTangents true " + $curAttr;
+												$weightState = 1;
+						    					}	
+						    					else
+						    						$weightState = 0;
+										}
+						
+					    					if(`substring $line 3 7` == "preIn")
+										{
+											tokenize ($line," ",$buffer);
+											tokenize ($buffer[1],";",$buffer);
+											$preI = $buffer[0]; 
+										}
+						
+					   					if(`substring $line 3 8` == "postIn")
+										{
+											tokenize ($line," ",$buffer);
+											tokenize ($buffer[1],";",$buffer);
+											$postI = $buffer[0]; 
+										}
+						
+					    					if(`substring $line 3 8` == "keys {")
+										{
+											$line = fgetline($fileID); 
+											while (`substring $line 3 3` != "}")
+						 					{
+						   						int $argNum = tokenize ($line," ",$buffer);
+						    						$time = $buffer[0];
+						    						$value = $buffer[1];
+						    						$inType = $buffer[2];
+						    						$outType = $buffer[3];
+						    						$tanLock = $buffer[4];
+						    						$weightLock = $buffer[5];
+						    						$breakDown = 0;
+						    						
+						   						if ($argNum == 7)
+												{
+													tokenize ($buffer[6],";",$buffer2);
+													$breakDown = $buffer2[0];
+												}
+						    						else
+												{
+													$breakDown = $buffer[6];
+							
+													if ($argNum > 7)
+							    						{
+														$tan1 = $buffer[7];
+														tokenize ($buffer[8],";",$buffer2);
+														$weight1 = $buffer2[0];
+							
+							    						}
+													if ($argNum > 9)
+							    						{
+														$tan2 = $buffer[9];
+														tokenize ($buffer[10],";",$buffer2);
+														$weight2 = $buffer2[0];							
+							    						}
+												}
+					  
+					    							setKeyframe -time $time -value $value -bd $breakDown $curAttr;
+						    						keyTangent -lock $tanLock -t $time $curAttr;
+						    						
+						    						if ($weightState == 1)
+												{
+													eval $weighted;
+													keyTangent -t $time -weightLock $weightLock $curAttr;
+													
+												}
+									
+						    						if($inType != "fixed" && $outType != "fixed")
+						    						{
+						    							keyTangent -e -a -t $time -itt $inType -ott $outType $curAttr;
+						    							//keyTangent -e -a -t $time -itt $inType -ott $outType $curAttr;
+						    						}
+						    			
+						    						if($inType == "fixed" && $outType != "fixed")
+												{
+											
+							   						keyTangent -e -a -t $time -inAngle $tan1 -inWeight $weight1 -itt $inType -ott $outType $curAttr;
+							   						//keyTangent -e -a -t $time -inAngle $tan1 -inWeight $weight1 -itt $inType -ott $outType $curAttr;
+	
+												}
+						    						if($inType != "fixed" && $outType == "fixed")
+												{
+										
+													keyTangent -e -a -t $time -outAngle $tan1 -inWeight $weight1 -itt $inType -ott $outType $curAttr;
+													//keyTangent -e -a -t $time -outAngle $tan1 -inWeight $weight1 -itt $inType -ott $outType $curAttr;
+							   		
+												}
+						    						if($inType == "fixed" && $outType == "fixed")
+												{
+							   			
+													keyTangent -e -a -t $time -inAngle $tan1 -inWeight $weight1 -outAngle $tan2 -outWeight $weight2 -itt $inType -ott $outType $curAttr;
+							   						//keyTangent -e -a -t $time -inAngle $tan1 -inWeight $weight1 -outAngle $tan2 -outWeight $weight2 -itt $inType -ott $outType $curAttr;
+												}
+						  
+						
+						    						$line = fgetline($fileID); 
+						   
+						    					}
+						    				setInfinity -poi $postI -pri $preI $curAttr; 	
+										$endit = 1;
+										}
+					
+									}
+								}
+							}
+							else
+							{
+								if ($curAttr != "dk_skip")
+									print ("Warning: " + $curAttr + " Does not exist... Skipping\n");
+							}
+						
+						}
+						else
+						{	
+							if ($node != "dk_skip")
+								print ("Warning: " + $node + " Does not exist... Skipping\n");
+						}
+						
+					}	
+		
+				}
+		
+		
+
+			}
+		
+
+		}
+		fclose $fileID;	
+		print "\nDone Reading Animation Curves\n";
+	}
+
+	select -cl;
+	for ($item in $selected)
+		select -tgl $item;
+	
+}
+
+//传递uv
+global proc zaiobjuv()
+{
+
+string $objuvsz[] = `ls -sl`; 
+global string $objuv; 
+$objuv=$objuvsz[0];
+headsUpMessage ("成功载入"+$objuv);
+print ("// Result:成功载入"+$objuv);
+}
+global proc pichuanuv()
+{
+global string $objuv;    
+
+string $array[] = `ls -sl`;
+string $objto;
+for ($objto in $array)
+{
+polyTransfer -uv 1 -ao $objuv $objto;
+}
+
+headsUpMessage ("传递UV成功,被传递的物体已被选择，你可以点击清除历史");
+print ("// Result:传递UV成功,被传递的物体已被选择，你可以点击清除历史");
+select -r $array ;
+}
+global proc dddchuanuv()
+{
+string $array[] = `ls -sl`;
+
+polyTransfer -uv 1 -ao $array[0] $array[1];
+
+
+headsUpMessage ("传递UV成功,被传递的"+$array[1]+"已被选择，你可以点击清除历史");
+print ("// Result:传递UV成功,被传递的"+$array[1]+"已被选择，你可以点击清除历史");
+select -r $array[1]  ;
+}
+
+global proc shanuv()
+{
+
+doBakeNonDefHistory( 1, {"prePost" });
+headsUpMessage "已成功删除历史";
+print ("// Result:已成功删除历史");
+}
+
+
+
+
+//链接outmesh
+proc ljoutmesh()
+{
+string $obj[] = `ls -sl`;
+string $shapesy[] = `listRelatives -shapes $obj[0]`;
+string $shapese[] = `listRelatives -shapes $obj[1]`;
+
+string $skinName1=`findRelatedSkinCluster($obj[0])`;
+string $pd1=size($skinName1);
+if ($pd1 == 0) {
+
+string $objmesh1 = $shapesy[0]+".inMesh";
+string $objmesh2 = $shapese[0]+".outMesh";
+
+connectAttr $objmesh2 $objmesh1;
+headsUpMessage ($shapesy[0]+"的inmesh已成功连接到"+$shapese[0]+"的outmesh上");
+tdgc;	
+} else {
+
+string $objmesh1 = $shapesy[1]+".inMesh";
+string $objmesh2 = $shapese[0]+".outMesh";
+
+connectAttr $objmesh2 $objmesh1;
+headsUpMessage "正在链接与匹配点";
+tdgc;	
+headsUpMessage ($shapesy[1]+"的inmesh已成功连接到"+$shapese[0]+"的outmesh上");
+print ("// Result:"+$shapesy[1]+"的inmesh已成功连接到"+$shapese[0]+"的outmesh上"); 
+}
+
+}
+
+
+
+
+
+
+
+//匹配点
+global proc tdgc()
+{
+if(`window -ex polyTexturePlacementPanel1Window`)
+deleteUI polyTexturePlacementPanel1Window;
+softSelect -e -softSelectEnabled 0;
+//获取物体名称
+string $obj[] = `ls -sl`;
+//计算模型点数
+int $pVC[] =`polyEvaluate -v $obj[1]`;
+int $shu;
+for ($shu = 0; $shu <$pVC[0]; $shu++) 
+{
+//查询物体1的物体本地坐标
+float $ptPos[] = `pointPosition -l ($obj[1]+".vtx"+"["+$shu+"]")`;
+//选择物体的点移动w
+
+move -a -os $ptPos[0] $ptPos[1] $ptPos[2] ($obj[0]+".vtx"+"["+$shu+"]");
+}
+headsUpMessage ($obj[0]+"成功匹配到"+$obj[1]);
+print ("// Result:"+$obj[0]+"成功匹配到"+$obj[1]); 
+}  
+
+//选择参考点，让物体对应的点匹配过来
+global proc slpp()
+{
+if(`window -ex polyTexturePlacementPanel1Window`)    
+deleteUI polyTexturePlacementPanel1Window;
+softSelect -e -softSelectEnabled 0;
+global string  $vobjname;
+string $objjx[]=`ls -sl -fl`;
+
+
+ 
+
+
+string $objvtx;
+for ($objvtx in $objjx) {
+	
+
+float $ptPos[] = `pointPosition -l $objvtx`;
+
+
+string $buffer[];  
+tokenize $objvtx "." $buffer;  
+
+  string $objvtx2=$buffer[1];
+  string $buffer2[]; 
+  tokenize $objvtx2 "[" $buffer2;  
+  
+  string $objvtx3=$buffer2[1];
+  string $buffer3[]; 
+  tokenize $objvtx3 "]" $buffer3;  
+  
+ 
+
+string $objvtxname= $vobjname+".vtx["+$buffer3[0]+"]";
+ 
+
+select -r $objvtxname;
+
+move -a -os $ptPos[0] $ptPos[1] $ptPos[2];
+
+}
+headsUpMessage ($vobjname+"的点成功匹配到所选择的参考点上");
+print ("// Result:"+$vobjname+"的点成功匹配到所选择的参考点上"); 
+clear $objjx;
+}
+//把选中的点匹配到参考物体上
+global proc slpp2()
+{
+if(`window -ex polyTexturePlacementPanel1Window`)
+deleteUI polyTexturePlacementPanel1Window;
+softSelect -e -softSelectEnabled 0;
+global string  $vobjname;
+string $objjx[]=`ls -sl -fl`;
+
+
+ 
+
+string $objvtx;
+for ($objvtx in $objjx) {
+	
+
+
+
+
+string $buffer[];  
+tokenize $objvtx "." $buffer;  
+
+  string $objvtx2=$buffer[1];
+  string $buffer2[]; 
+  tokenize $objvtx2 "[" $buffer2;  
+  
+  string $objvtx3=$buffer2[1];
+  string $buffer3[]; 
+  tokenize $objvtx3 "]" $buffer3;  
+  
+ 
+
+string $objvtxname= $vobjname+".vtx["+$buffer3[0]+"]";
+ float $ptPos[] = `pointPosition -l $objvtxname`;
+
+select -r $objvtx;
+
+move -a -os $ptPos[0] $ptPos[1] $ptPos[2];
+
+}
+clear $objjx;
+headsUpMessage ("所选择点成功匹配到"+$vobjname+"的参考点上");
+print ("// Result:所选择点成功匹配到"+$vobjname+"的参考点上"); 
+}
+//载入物体
+global proc slobj()
+{
+global string  $vobjname; 
+
+string $obj22[] = `ls -sl`; 
+$vobjname =$obj22[0];
+headsUpMessage ("已载入"+$vobjname);
+print ("// Result:已载入"+$vobjname); 
+}
+
+//匹配点X轴
+global proc tdgcX()
+{
+if(`window -ex polyTexturePlacementPanel1Window`)
+deleteUI polyTexturePlacementPanel1Window;
+softSelect -e -softSelectEnabled 0;
+//获取物体名称
+string $obj[] = `ls -sl`;
+//计算模型点数
+int $pVC[] =`polyEvaluate -v $obj[1]`;
+int $shu;
+for ($shu = 0; $shu <$pVC[0]; $shu++) 
+{
+//查询物体1的物体本地坐标
+float $ptPos[] = `pointPosition -l ($obj[1]+".vtx"+"["+$shu+"]")`;
+float $ptPos2[] = `pointPosition -l ($obj[0]+".vtx"+"["+$shu+"]")`;
+//选择物体的点移动w
+
+move -a -os $ptPos[0] $ptPos2[1] $ptPos2[2] ($obj[0]+".vtx"+"["+$shu+"]");
+}
+headsUpMessage ($obj[0]+"成功匹配X轴到"+$obj[1]);
+print ("// Result:"+$obj[0]+"成功匹配X轴到"+$obj[1]); 
+} 
+
+
+//匹配点Y轴
+global proc tdgcY()
+{
+if(`window -ex polyTexturePlacementPanel1Window`)
+deleteUI polyTexturePlacementPanel1Window;
+softSelect -e -softSelectEnabled 0;
+//获取物体名称
+string $obj[] = `ls -sl`;
+//计算模型点数
+int $pVC[] =`polyEvaluate -v $obj[1]`;
+int $shu;
+for ($shu = 0; $shu <$pVC[0]; $shu++) 
+{
+//查询物体1的物体本地坐标
+float $ptPos[] = `pointPosition -l ($obj[1]+".vtx"+"["+$shu+"]")`;
+float $ptPos2[] = `pointPosition -l ($obj[0]+".vtx"+"["+$shu+"]")`;
+//选择物体的点移动w
+
+move -a -os $ptPos2[0] $ptPos[1] $ptPos2[2] ($obj[0]+".vtx"+"["+$shu+"]");
+}
+headsUpMessage ($obj[0]+"成功匹配Y轴到"+$obj[1]);
+print ("// Result:"+$obj[0]+"成功匹配Y轴到"+$obj[1]); 
+}  
+
+//匹配点Z轴
+global proc tdgcZ()
+{
+if(`window -ex polyTexturePlacementPanel1Window`)
+deleteUI polyTexturePlacementPanel1Window;
+softSelect -e -softSelectEnabled 0;
+//获取物体名称
+string $obj[] = `ls -sl`;
+//计算模型点数
+int $pVC[] =`polyEvaluate -v $obj[1]`;
+int $shu;
+for ($shu = 0; $shu <$pVC[0]; $shu++) 
+{
+//查询物体1的物体本地坐标
+float $ptPos[] = `pointPosition -l ($obj[1]+".vtx"+"["+$shu+"]")`;
+float $ptPos2[] = `pointPosition -l ($obj[0]+".vtx"+"["+$shu+"]")`;
+//选择物体的点移动w
+
+move -a -os $ptPos2[0] $ptPos2[1] $ptPos[2] ($obj[0]+".vtx"+"["+$shu+"]");
+}
+headsUpMessage ($obj[0]+"成功匹配Z轴到"+$obj[1]);
+print ("// Result:"+$obj[0]+"成功匹配Z轴到"+$obj[1]); 
+}  
+
+
+
+
+
+//镜像表情
+proc copyjx()
+{
+
+string $objjx[]=`ls -sl`;
+string $targetface=$objjx[1];
+string $baseface=$objjx[0];
+int $iFANTAKEY=0;
+for ($iFANTAKEY=0;$iFANTAKEY<2;$iFANTAKEY++)
+
+ 
+
+duplicate -rr -n "copybaseface" $baseface;
+duplicate -rr -n "copytargetface" $targetface;
+blendShape -n "emotional expressionFANTAKEY" "copytargetface" "copybaseface";
+string $dcz =`textField -q -tx duichen`;
+string $dcz2 ="copybaseface.scale"+$dcz;
+setAttr $dcz2 -1;
+setAttr "emotional_expressionFANTAKEY.copytargetface" 0;
+select -r copybaseface1 ;
+select -add copybaseface ;
+CreateWrap;
+setAttr "emotional_expressionFANTAKEY.copytargetface" 1;
+string $doneface="CP"+$targetface;
+
+string $dfa[]= `duplicate -rr -n $doneface copybaseface1`;
+
+string $dfa2=$dfa[0];
+select -r copybaseface copybaseface1 copytargetface copybasefaceBase ;
+Delete;
+
+
+string $fmin=$targetface+".translate";
+
+string $fmin2=$dfa2+".translate";
+
+float $trans[] = getAttr($fmin);
+
+float $fpx =`textField -q -tx pxzhi`;
+float $fpy =`textField -q -tx pyzhi`;
+float $transyy= $trans[1]+$fpy;
+float $transxx= $trans[0]+$fpx;
+
+setAttr($fmin2, $transxx, $transyy, $trans[2]);
+select -r $dfa2 ;
+
+headsUpMessage ("镜像"+$targetface+"的表情成功");
+print ("// Result:镜像"+$targetface+"的表情成功"); 
+
+}
+//选中对所选物体有影响全部骨骼
+global proc slguge()
+{
+string $array[] = `ls -sl`;
+select -cl  ;
+global string $objname1;     
+global string $objname2; 
+string $objname1=$array[0];
+string $objname2=$array[1];
+string $jointname[]=`skinCluster -q -wi $objname1`;
+string $sjoint;
+for ($sjoint in $jointname) {
+select -add $sjoint;
+}
+headsUpMessage ("已选择对"+$objname1+"有影响的全部骨骼");
+print ("// Result:已选择对"+$objname1+"有影响的全部骨骼");
+clear $jointname;
+}
+
+
+//蒙皮
+proc mengpi()
+{
+global string $objname1; 
+global string $objname2; 
+string $jointname[]=`skinCluster -q -wi $objname1`;
+string $sjoint;
+for ($sjoint in $jointname) {
+select -add $sjoint;
+
+}
+
+select -add $objname2;
+createSkinCluster "-mi 5 -dr 4";
+headsUpMessage ("已对"+$objname2+"蒙皮成功");
+print ("// Result:已对"+$objname2+"蒙皮成功");
+clear $jointname;
+}
+//复制权重
+global proc copyquanzhong()
+{
+global string $objname1;     
+global string $objname2;
+
+
+
+string $skinName1=`findRelatedSkinCluster($objname1)`;
+
+
+string $skinName2=`findRelatedSkinCluster($objname2)`;
+copySkinWeights -ss $skinName1 -ds $skinName2 -noMirror;
+headsUpMessage ("已经把"+$objname1+"的权重成功复制给了"+$objname1);
+print ("// Result:已经把"+$objname1+"的权重成功复制给了"+$objname1);
+}
+
+//烘焙毛发骨骼
+global proc sjj(){
+global int $pp; 
+$pp = 1;     
+textField  -e -en 0  start;    
+textField  -e -en 0  end;  
+
+}
+global proc see(){
+global int $pp;
+$pp = 2;
+textField  -e -en 1  start;    
+textField  -e -en 1  end;  
+
+
+
+
+}
+global proc hpz(){
+ 
+global int $pp;
+int $st ;
+int $en;
+if ($pp == 1){
+
+
+$st = `playbackOptions -q -minTime`;
+
+
+$en = `playbackOptions -q -maxTime`;
+}
+else if ($pp == 2)
+{
+$st =`textField -q -tx start`;
+$en =`textField -q -tx end`;
+}
+else{print "// Result:发生错误，请联系林振坤";
+}
+
+int $sa =`textField -q -tx sample`;
+int $tq =`textField -q -tx tiqian`;
+int $ti;
+int $ct;
+int $ct2;
+
+for($ct2=($st-$tq); $ct2<$st; $ct2)
+{
+    currentTime $ct2;
+$ct2+=1;
+}
+for ($ti = $st; $ti < ($en+1); $ti ) {
+currentTime $ti;
+setKeyframe -breakdown 0 -hierarchy below -at "rx" -at "ry" -at "rz" ;
+for($ct=0; $ct<$sa; $ct++)
+{
+    currentTime $ti;
+$ti+=1;
+
+
+}
+
+}
+headsUpMessage "已成功烘焙好骨骼";
+print "// Result:已成功烘焙好骨骼";
+}
+
+
+
+
+
+
+
+//删除烘培的骨骼动画
+proc dejo()
+{
+  cutKey -cl -t ":" -f ":" -hierarchy below -at "rx" -at "ry" -at "rz";
+    }
+
+
+
+//批量替换物体
+//载入物体
+global proc slobjcb()
+{
+global string  $objcb; 
+
+string $objcba[] = `ls -sl`; 
+string $objcb = $objcba[0];
+
+}
+
+//替换物体
+global proc cpobj()
+{
+global string  $objcb; 
+string $objcp[] = `ls -sl`;
+ string $objth;
+int $Chaxun = objExists("dup_obj");
+if ($Chaxun ==0)
+{
+group -em -n "dup_obj";  
+}
+for ($objth in $objcp) 
+{
+    
+string $objbdup[]=`duplicate -rr $objcb`;
+
+select -r $objth;
+select -add $objbdup[0];
+
+parentConstraint;
+string $findpCon[] = `listRelatives -type parentConstraint`;
+delete $findpCon[0]; 
+scaleConstraint;
+string $findpCon[] = `listRelatives -type scaleConstraint`;
+delete $findpCon[0]; 
+
+
+
+parent $objbdup[0] dup_obj ;
+
+
+}
+
+    
+}
+
+
+//instance替换物体
+global proc cpinobj()
+{
+global string  $objcb; 
+string $objcp[] = `ls -sl`;
+ string $objth;
+int $Chaxun = objExists("dup_obj");
+if ($Chaxun ==0)
+{
+group -em -n "dup_obj";  
+}
+for ($objth in $objcp) 
+{
+select -r $objcb; 
+string $insobj[]=`instance`;
+
+select -r $objth;
+select -add $insobj[0];
+
+parentConstraint;
+string $findpCon[] = `listRelatives -type parentConstraint`;
+delete $findpCon[0]; 
+scaleConstraint;
+string $findpCon[] = `listRelatives -type scaleConstraint`;
+delete $findpCon[0]; 
+
+select -r $objth;
+Delete;
+
+parent $insobj[0] dup_obj ;
+
+
+}
+
+    
+}
+
+
+//物体烘培工具
+global proc wtsjj(){
+global int $wtpp; 
+$wtpp = 1;     
+textField  -e -en 0  wtstart;    
+textField  -e -en 0  wtend;  
+
+}
+
+global proc wtsee(){
+global int $wtpp;
+$wtpp = 2;
+textField  -e -en 1  wtstart;    
+textField  -e -en 1  wtend;  
+}
+
+global proc wtd1(){
+global int $wtpp2;
+$wtpp2 = 1;
+  
+}
+global proc wtd2(){
+global int $wtpp2;
+$wtpp2 = 2;
+  
+}
+//开始烘培
+global proc wthpz(){
+
+global int $wtpp;
+global int $wtpp2;
+int $wtst ;
+int $wten;
+if ($wtpp == 1){
+
+
+$wtst = `playbackOptions -q -minTime`;
+
+
+$wten = `playbackOptions -q -maxTime`;
+}
+else if ($wtpp == 2)
+{
+$wtst =`textField -q -tx wtstart`;
+$wten =`textField -q -tx wtend`;
+}
+else{print "// Result:发生错误，请联系林振坤\n";
+}
+
+string $array[] = `ls -sl`;
+string $grn=`group -em -n "dup_obj"`; 
+
+
+int $wtsa =`textField -q -tx wtsample`;
+$wtsa=`clamp 1 10000 $wtsa`;
+int $wtti;
+int $wtct;
+int $wtct2;
+headsUpMessage "正在烘焙物体，无法停止请耐心等待";
+print "// Result:正在烘焙物体，无法停止请耐心等待\n";
+
+for ($wtti = $wtst; $wtti < ($wten+1); $wtti ) {
+currentTime $wtti;
+if ($wtpp2 == 1){
+select -r $array[0];
+duplicate ;
+string $arraydu[] = `ls -sl`;
+parent $arraydu[0] $grn ;
+}
+else if ($wtpp2 == 2)
+{
+select -r $array[0];
+instance;  
+string $arraydu[] = `ls -sl`;
+parent $arraydu[0] $grn ; 
+}
+for($wtct=0; $wtct<$wtsa; $wtct++)
+{
+    currentTime $wtti;
+$wtti+=1;
+
+
+}
+
+}
+select -r $array[0];
+headsUpMessage "已成功烘焙好物体";
+print "// Result:已成功烘焙好物体\n";
+}
+
+
+
+//伽马校正
+
+
+global proc string doGammaCtrl(string $Attr,float $gamma)
+{
+
+int $slml = `radioButtonGrp -q -sl mlRbGrp`;
+int $slsl = `radioButtonGrp -q -sl slRbGrp`;
+string $sl[];
+
+if ($slsl == 1)
+{
+$sl = `ls -sl`;
+for($i=0;$i<size($sl);$i++)
+if (`nodeType $sl[$i]`=="transform")
+{
+string $tmp[] = `ls -dag -type shape $sl[$i]`;
+$sl[$i] = $tmp[0];
+}
+switch ($slml)
+{
+case 1:
+$sl = `ls -mat $sl`;
+break;
+case 2:
+$sl = `ls -lt $sl`;
+break;
+case 3:
+$sl = `ls -mat -lt $sl`;
+break;
+} 
+}
+else
+switch ($slml)
+{
+case 1:
+$sl = `ls -mat`;
+break;
+case 2:
+$sl = `ls -lt`;
+break;
+case 3:
+$sl = `ls -mat -lt`;
+break;
+}
+
+if (!`objExists "gammaCtrl"`)
+{
+string $gammaCtrNode = `createNode -n "gammaCtrl" unknown`;
+addAttr -ln "gamma" -at double -dv $gamma gammaCtrl;
+setAttr -e-keyable true gammaCtrl.gamma;
+}
+setAttr "gammaCtrl.gamma" $gamma;
+
+string $buffer[];
+tokenize $Attr ";" $buffer;
+for ($a in $sl)
+{
+for ($attr in $buffer)
+{
+if(`attributeExists $attr $a` && `getAttr -type ($a + "." + $attr)` == "float3")
+{
+string $color = $a + "." + $attr;
+string $channel[] = `listConnections -p 1 $color`;
+if ($channel[0] == "")
+{
+string $gamma = `createNode gammaCorrect`;
+vector $c = `getAttr $color`;
+setAttr ($gamma + ".value") ($c.x) ($c.y) ($c.z);
+connectAttr -force ($gamma + ".outValue") $color;
+
+connectAttr -force gammaCtrl.gamma ($gamma + ".gammaX");
+connectAttr -force gammaCtrl.gamma ($gamma + ".gammaY");
+connectAttr -force gammaCtrl.gamma ($gamma + ".gammaZ");
+}
+else 
+{
+string $type = `nodeType $channel[0]`;
+if($type != "gammaCorrect")
+{
+string $gamma = `createNode gammaCorrect`;
+connectAttr -force $channel[0] ($gamma + ".value");
+connectAttr -force ($gamma + ".outValue") $color;
+connectAttr -force gammaCtrl.gamma ($gamma + ".gammaX");
+connectAttr -force gammaCtrl.gamma ($gamma + ".gammaY");
+connectAttr -force gammaCtrl.gamma ($gamma + ".gammaZ");
+
+}
+}
+}
+}
+}
+select gammaCtrl;
+return "gammaCtrl";
+headsUpMessage "已成功链接";
+print "// Result:已成功链接";
+
+}
+
+global proc doRemoveGammaCtrl()
+{
+if (`objExists "gammaCtrl"`)
+{
+string $gammaNode[] = stringArrayRemoveDuplicates(`listConnections "gammaCtrl.gamma"`);
+delete gammaCtrl;
+for ($s in $gammaNode)
+{
+string $inPlug[] = `listConnections -p 1 ($s + ".value")`;
+string $outPlug[] = `listConnections -p 1 ($s + ".outValue")`;
+vector $c = `getAttr ($s + ".value")`;
+delete $s;
+if ($outPlug[0] != "")
+{
+if ($inPlug[0] != "") connectAttr -f $inPlug[0] $outPlug[0];
+else setAttr $outPlug[0] ($c.x) ($c.y) ($c.z);
+}
+}
+}
+headsUpMessage "已成功移除链接";
+print "// Result:已成功移除链接";
+}
+
+global proc Seleccionar (int $typo) {
+
+print $typo;
+float $scaleuv, $moveuv;
+
+
+	
+string $Locator_nodes[] = `ls -sl -fl`;
+
+int $leafF = size ($Locator_nodes);
+print ("Numero de poligonos por hoja: " + $leafF + "\n");
+
+string $tokens[];
+int $numTokens = `tokenize $Locator_nodes[0] "." $tokens`;
+
+select -r $tokens[0];
+
+
+int $totalf[] = `polyEvaluate -f`;
+
+string $object;
+
+
+ConvertSelectionToUVs;
+
+if ($typo == 4){
+	
+	$scaleuv = 0.49;
+	$moveuv = 0.25;
+	
+	}
+	
+if ($typo == 9){
+	
+	$scaleuv = 0.32;
+	$moveuv = 0.3333333;
+	
+}
+
+polyEditUV -pu 0.5 -pv 0.5 -su $scaleuv -sv $scaleuv ;	
+
+for ($Sn= 0; $Sn <$typo; $Sn++){
+	
+	crearLambert ("lambert_" + $Sn);
+	
+	}
+
+
+
+int $f = 0;
+
+selectMode -component;
+
+selectType -pf true;
+
+
+
+
+int $totalF = $totalf[0]/$leafF;
+
+
+int $time = $totalF;
+
+currentTime $time;
+
+
+for ($f=0; $f< $totalF; $f++)
+{ 
+	
+	int $factor = (`rand 0 ($typo)`);
+//    select -r ($Locator_nodes[0] + ".f[" + $f +"]");
+
+		for ($fg=0; $fg < $leafF; $fg++){
+	
+
+		sets -e -forceElement ("lambert_" + $factor + "SG") ($tokens[0] + ".f[" + (($f * $leafF) + 
+$fg) +"]");
+	
+		}
+
+
+		
+			$time--; 
+    currentTime $time;
+
+}
+	
+	for ($Sn= 0; $Sn <$typo; $Sn++){
+		
+		switch ($Sn){
+			case 0:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+				
+				if ($typo == 4){
+
+					polyEditUV -u -0.25 -v -0.25 ;
+					
+				} else {
+					
+					polyEditUV -u -0.33333 -v -0.33333 ;
+				}
+
+			break;
+			
+			
+			case 1:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+				
+				if ($typo == 4){
+
+					polyEditUV -u 0.25 -v -0.25 ;
+					
+				} else {
+					
+					polyEditUV -u 0 -v -0.33333 ;
+				}
+
+			break;
+			
+			case 2:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+				
+				if ($typo == 4){
+
+					polyEditUV -u 0.25 -v 0.25 ;
+					
+				} else {
+					
+					polyEditUV -u 0.33333 -v -0.33333 ;
+				}
+
+			break;
+			
+			case 3:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+				
+				if ($typo == 4){
+
+					polyEditUV -u -0.25 -v 0.25 ;
+					
+				} else {
+					
+					polyEditUV -u -0.33333 -v 0 ;
+				}
+
+			break;
+			
+			case 4:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+							
+				polyEditUV -u 0 -v 0 ;
+
+
+			break;
+			
+			case 5:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+							
+				polyEditUV -u 0.33333 -v 0 ;
+
+
+			break;
+			
+			case 6:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+							
+				polyEditUV -u -0.33333 -v 0.33333 ;
+
+
+			break;
+			
+			case 7:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+							
+				polyEditUV -u 0 -v 0.33333 ;
+
+
+			break;
+			
+			case 8:
+				select -r ("lambert_" + $Sn + "SG");
+				ConvertSelectionToUVs;
+							
+				polyEditUV -u 0.33333 -v 0.33333 ;
+
+
+			break;
+		
+		
+		
+		}
+		
+		
+	
+	
+	
+	}
+	
+	
+	
+
+}
+
+	
+
+proc crearLambert (string $shaderName) 
+
+{
+
+
+	if (`objExists ($shaderName + "SG")` == 0){
+	
+		sets -renderable true -noSurfaceShader true -empty -name ($shaderName + "SG");
+
+
+		shadingNode -asShader lambert - n $shaderName;
+		
+		float $R = (`rand 0 1`);
+		float $G = (`rand 0 1`);
+		float $B = (`rand 0 1`);
+		
+		setAttr ($shaderName + ".color") -type double3 $R $G $B ;
+	
+
+		connectAttr ($shaderName + ".outColor") ($shaderName + "SG.surfaceShader");
+	
+	}
+
+
+
+}
+
+
+
+//选择摄像机
+global proc cast ()
+{
+string $csobj[] = `ls -sl`;
+
+global string $slcame;
+$slcame=$csobj[0];
+headsUpMessage ("已经载入"+$slcame+"作为链接摄像机");
+print ("// Result:已经载入"+$slcame+"作为链接摄像机");
+}
+//链接全部笔刷
+global proc caliallst ()
+{
+global string $slcame;
+string $strokes[] = `ls -type stroke`;
+
+
+string $strs;
+for ($strs in $strokes)
+ {
+global string $slcame;
+string $cca= $slcame+".translate";
+
+string $shst4= $strs+".cameraPoint";
+
+connectAttr -f $cca $shst4;
+
+}
+headsUpMessage ("已经把所有笔刷链接到"+$slcame);
+print ("// Result:已经把所有笔刷链接到"+$slcame);
+}
+
+//链接选择笔刷
+global proc calislst ()
+{
+global string $slcame;    
+string $strokes[] = `ls -sl`;
+string $strs;
+for ($strs in $strokes)
+ {
+
+string $cca= $slcame+".translate";
+
+string $shst4= $strs+".cameraPoint";
+
+connectAttr -f $cca $shst4;
+
+}
+headsUpMessage ("所选择的笔刷已成功链接到"+$slcame);
+print ("// Result:所选择的笔刷已成功链接到"+$slcame);
+}
+
+//创建mia
+global proc creatmia()
+{
+global string $mianame;
+string $mianame=`mrCreateCustomNode -asUtility "" mia_exposure_photographic`;
+rename  $mianame mia_ex_ph;
+connectAttr -f mia_ex_ph.message mia_physicalsky1.miSkyExposure;
+headsUpMessage "成功创建了mia_ex_ph节点";	
+print "// Result:成功创建了mia_ex_ph节点";
+}
+
+
+
+// 链接摄像机
+global proc cammia()
+{
+
+
+
+string $camename[] = `ls -sl -fl`;
+string $camesha;
+	
+for ($camesha in $camename)
+ {
+string $camename2;
+$camename2 = $camesha;
+int $pd=`gmatch $camename2 "*Shape*"`;
+
+if ($pd==1) {
+string $cameshader1;
+$cameshader1 = $camename2+".miEnvironmentShader";
+string $cameshader2;
+$cameshadere2=$camename2+".miLensShader";   
+
+
+connectAttr -f mia_physicalsky1.message $cameshader1;
+connectAttr -f mia_ex_ph.message $cameshadere2;
+
+
+} else {
+ string $cameshape[] = `listRelatives -shapes $camesha`;
+string $camesham = $cameshape[0];
+string $cameshader1;
+$cameshader1 = $camesham+".miEnvironmentShader";
+string $cameshader2; 
+$cameshader2=$camesham+".miLensShader";   
+
+connectAttr -f mia_physicalsky1.message $cameshader1;
+connectAttr -f mia_ex_ph.message $cameshader2;
+
+
+}
+
+
+}
+headsUpMessage "链接摄像机成功";	
+print "// Result:链接摄像机成功";
+}
+global proc miaset()
+{
+setAttr "mia_ex_ph.f_number" 9;
+setAttr "mia_ex_ph.burn_highlights" 0.55;
+setAttr "mia_ex_ph.crush_blacks" 0.15;
+headsUpMessage "成功设置了mia_ex_ph的参数";
+print "// Result:成功设置了mia_ex_ph的参数";
+}
+proc assls()
+{
+
+string $cd = `confirmDialog -button "继续" -button "取消" -title "警告，删除历史慎用！" -message "此命令会删除角色outmesh表情物体的链接，如删角色的模型历史请与动画组联系"`;
+
+
+switch ($cd)
+{
+case "继续":
+shanuv;
+break;
+case "取消":
+break;
+}
+}
+proc asmia()
+{
+
+string $cd = `confirmDialog -button "继续" -button "取消" -title "警告" -message "请先确认场景已经创建默认的天光系统，且没有这个节点"`;
+
+
+switch ($cd)
+{
+case "继续":
+creatmia;
+break;
+case "取消":
+break;
+}
+}
+
+//创建层
+proc creatzdepth()
+{
+
+
+createRenderLayer -name "Z_depth" -number 1 -noRecurse ;
+setAttr( "defaultRenderGlobals.currentRenderer" ) -typ "string" "mentalRay";
+renderLayerEditorRenderable RenderLayerTab "defaultRenderLayer" "0";
+setAttr "miDefaultOptions.minSamples" 1.86265e-009;
+setAttr "miDefaultOptions.maxSamples" 2;
+setAttr "miDefaultOptions.filter" 0;
+headsUpMessage "已成功创建Z_depth";
+print "// Result:已成功创建Z_depth，并设置为渲染方式为mentalRay，抗锯齿为2，模糊值为box";
+
+}
+
+//添加所有多边形赋予材质
+proc crsfsh()
+{
+SelectAllPolygonGeometry;//全选
+renderLayerEditorAddObjects RenderLayerTab Z_depth;//添加进Z_depth层
+
+
+string $hah=`createRenderNodeCB -asShader "surfaceShader" surfaceShader ""`;
+
+rename $hah "Z_d_surffaceshader" ;
+
+
+
+editRenderLayerGlobals -currentRenderLayer Z_depth;
+SelectAllPolygonGeometry;//全选
+
+hyperShade -assign Z_d_surffaceshader;//赋予材质
+
+
+
+
+setAttr "Z_d_surffaceshader.outColor" -type double3 1 1 1 ;
+headsUpMessage "已赋予所有物体Z_d_surffaceshader材质";
+print "// Result:已赋予所有物体Z_d_surffaceshader材质";
+}
+
+//选择树叶给材质
+proc crsfsh_shuye()
+{
+
+select -add "*Leaf";//选择树叶
+renderLayerEditorAddObjects RenderLayerTab Z_depth;//添加进Z_depth层
+
+
+string $hah=`createRenderNodeCB -asShader "surfaceShader" surfaceShader ""`;
+
+rename $hah "Z_d_surf_shuye" ;
+
+
+
+editRenderLayerGlobals -currentRenderLayer Z_depth;
+
+select -add "*Leaf";//选择树叶
+
+hyperShade -assign Z_d_surf_shuye;//赋予材质
+
+
+
+
+setAttr "Z_d_surf_shuye.outColor" -type double3 1 1 1 ;
+headsUpMessage "已赋予所有树叶Z_d_surf_shuye材质";
+print "// Result:已赋予所有树叶Z_d_surf_shuye材质";
+
+}
+//设置环境雾
+proc huangjingwu()
+{
+setAttr "envFogMaterial.color" -type double3 0 0 0 ;
+setAttr "envFogMaterial.colorBasedTransparency" 0;
+RenderViewWindow;
+
+
+
+string $miashader[]=`ls "mia_*"`; 
+int $miasi=size($miashader);
+if ($miasi > 0)
+{
+print $miasi;
+delete "mia_*";
+print "// Result:已设置好envFogMaterial体积雾，已清空mia节点，符合z通道渲染条件";
+
+}
+else {
+print "// Result:已设置好envFogMaterial体积雾，场景无mia节点，符合z通道渲染条件";
+}
+
+
+headsUpMessage "已设置好envFogMaterial体积雾，场景无mia节点，符合z通道渲染条件";
+
+
+}
+////载入图片路径1
+global proc jc1()
+{
+
+
+ 
+string $sel[] = `ls -sl`;
+string $obj;
+$obj=$sel[0];
+ 
+string $shape[] = `listRelatives -s $obj`;    
+string $text[] = `connectionInfo -dfs ($shape[0] + ".instObjGroups[0]")`;    
+if (size($text) >0){        
+string $buffer[];        
+tokenize $text[0] "." $buffer; 
+string $hhs=$buffer[0]; 
+     
+
+string $buffer2[]; 
+tokenize $hhs "S" $buffer2;
+global string $hhs2; 
+$hhs2=$buffer2[0]+".refr_trans_color"; 
+
+print $hhs2;
+ 
+jc2;
+}
+}
+//载入图片路径2
+proc jc2()
+{
+global string $hhs2; 
+string $connections = `connectionInfo -sfd $hhs2`;
+print $connections;
+string $buffer3[]; 
+tokenize $connections "." $buffer3;
+string $hhs3 = $buffer3[0]+".fileTextureName"; 
+print $hhs3;
+string $s = `getAttr $hhs3`;
+print $s;
+textField  -e -tx $s tupian_inname;
+print "// Result:已成功获取路径";
+headsUpMessage "已成功获取路径";
+}
+//打开图片
+global proc dakaitp()
+{string $file;
+$file = `fileDialog -directoryMask "C:/Downloads/pic/*g" -t "链接遮罩图片"`; 
+textField  -e -tx $file tupian_inname;
+}
+//链接
+global proc ljtupian()
+{
+string $lujin=`textField -q -tx tupian_inname`;
+
+
+string $filename=`createRenderNodeCB -as2DTexture "" file ""`;
+string $filename2=`createRenderNodeCB -as2DTexture "" file ""`;
+setAttr -type "string" ($filename+".fileTextureName") $lujin;
+setAttr ($filename2+".alphaIsLuminance") 1;
+connectAttr -force ($filename+".outColor") "Z_d_surf_shuye.outColor";
+connectAttr -force ($filename2+".outTransparency") "Z_d_surf_shuye.outTransparency";
+headsUpMessage "已成功链接";
+print "// Result:已成功链接";
+}
+//创建环境雾
+global proc creathj()
+{
+defaultNavigation -createNew -destination "defaultRenderGlobals.fogGeometry";
+createNode environmentFog;
+// environmentFogShape1 // 
+setAttr environmentFogShape1.renderType 1;
+connectAttr environmentFogShape1.message defaultRenderGlobals.fogGeometry;
+// Connected environmentFogShape1.message to defaultRenderGlobals.fogGeometry. // 
+sets -n "envFogSE" -renderable 1 environmentFogShape1;
+// envFogSE // 
+lightlink -break -light "defaultLightSet" -object "envFogSE";
+disconnectAttr lambert1.outColor envFogSE.surfaceShader;
+// Disconnect lambert1.outColor from envFogSEsurfaceShader. // 
+shadingNode -asLight ambientLight -p environmentFog1 -n "envFogLight";
+// environmentFog1 // 
+sets -rm "defaultLightSet" "environmentFog1";
+// defaultLightSet // 
+lightlink -make -o envFogSE -l envFogLight;
+setAttr envFogLight.ambientShade 0;
+shadingNode -asShader envFog -n "envFogMaterial";
+// envFogMaterial // 
+connectAttr -f envFogMaterial.outColor envFogSE.volumeShader;
+// Connected envFogMaterial.outColor to envFogSE.volumeShader. // 
+defaultNavigation -defaultTraversal -destination "defaultRenderGlobals.fogGeometry";
+// envFogMaterial // 
+defaultNavigation -ce -d defaultRenderGlobals.fogGeometry -source environmentFogShape1;
+headsUpMessage "已成功创建环境雾";
+print "// Result:已成功创建环境雾";
+}
+//创建mix材质球
+global proc cjmix()
+{
+string $array[] = `ls -sl`;
+string $objto;
+string $mmx =` mrCreateCustomNode -asShader "" mia_material_x `;
+setAttr ($mmx+".brdf_0_degree_refl") 0;
+setAttr ($mmx+".brdf_90_degree_refl") 0;
+setAttr ($mmx+".ao_on") 1;
+
+global string $mmxfile;
+$mmxfile = `createRenderNodeCB -as2DTexture "" file "" `;
+setAttr ($mmxfile+".filter") 0;
+
+string $mmxgama =`createRenderNodeCB -asUtility "" gammaCorrect ""`; 
+setAttr ($mmxgama+".gammaX") 0.454;
+setAttr ($mmxgama+".gammaY") 0.454;
+setAttr ($mmxgama+".gammaZ") 0.454;
+connectAttr -force ($mmxfile+".outColor") ($mmxgama+".value");
+connectAttr -f ($mmxgama+".outValue") ($mmx+".diffuse");
+select -r $mmx ;
+string $tie="载入"+$mmx+"的贴图";
+
+button -e -l $tie zrtp;
+
+for ($objto in $array)
+{
+ select -add $objto ;   
+
+}
+hyperShade -assign ($mmx+"SG");
+headsUpMessage ("已创建"+$mmx+"材质球");
+print ("// Result:已创建"+$mmx+"材质球");
+}
+//链接mix图片
+global proc ljfile()
+{
+global string $mmxfile;
+string $filelujin;
+$filelujin = `fileDialog  -t "贴图"`;  
+textField  -e -tx $filelujin tietuname;
+setAttr -type "string" ($mmxfile+".fileTextureName") $filelujin;
+
+}
+
+
+//更新贴图
+global proc RefreshComfirm()
+{
+string $RefreshAim[] = `lsType ("file")`;
+string $RefreshNum;
+
+if($RefreshAim[0] == "<done>")
+{print ("场景里没有贴图"+"\n");}
+
+else
+{
+
+for ($RefreshNum in $RefreshAim)
+  {
+if ($RefreshNum != "<done>")
+ {
+print $RefreshNum;
+
+AEfileTextureReloadCmd ($RefreshNum+".fileTextureName");
+headsUpMessage "已成功更新所有贴图";
+print "// Result:已成功更新贴图";
+ }
+  }
+
+
+}
+clear $RefreshAim;
+}
+  
+//分割uv插件指定变量
+
+
+int $sys = 4;
+//创建窗口
+if(`window -ex chuan`) 
+deleteUI chuan;
+
+window -t "maya辅助工具V3.8" chuan;
+
+string $tabs = `tabLayout`;
+string $col1 = `scrollLayout`;
+
+columnLayout -adj 1;
+
+
+frameLayout -label "传递UV工具"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+text -label  " uv单个传递";
+text -label  "选择展好uv的模型加选需传递模型";
+button -l "传递" -c "dddchuanuv"; 
+text -label  "                                     ";
+text -label  "uv批量传递";
+text -label  "选择展好UV物体（单选）";
+button -l "载入参考模型" -c "zaiobjuv"; 
+text -label  " 选择需要被传递的物体（多选）";
+button -l "批量传递" -c "pichuanuv"; 
+text -label  " 清除传递历史命令";
+button -l "清除历史" -c "shanuv"; 
+text -label  "                                     ";
+setParent ..;
+setParent ..;
+frameLayout -label "outmesh链接工具"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+text -label  "请先选中原始物体（单选）再加选目标物体            ";
+
+
+
+text -label  "                                     ";
+
+
+text -label  "把原始物体的inmesh链接到目标物体outmesh上 ";
+text -label  "确认原始物体历史创建节点已被删除，否则会报错";
+button -l "链接" -c "ljoutmesh"; 
+text -label  "                                     ";
+setParent ..;
+setParent ..;
+frameLayout -label "匹配点工具"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "选整个物体匹配模式                           ";
+
+text -label  "选择需要匹配点的物体（单选）再加选参考物体";
+
+text -label  "                                     ";
+text -label  "这可能会花费你几秒至几分钟时间，请耐心等待";
+
+text -label  "                                     ";
+button -l "一键匹配" -c "tdgc"; 
+text -label  "                                     ";
+separator;separator;
+separator;separator;
+text -label  "选点匹配模式（多选）（1）                               ";
+button -l "载入需要匹配的模型" -c "slobj";
+ text -label  "选择参考物体的点                                     ";
+button -l "点匹配" -c "slpp";
+text -label  "                                     ";
+text -label  "                                     ";
+text -label  "选点匹配模式（多选）（2）                               ";
+button -l "载入作为参考的模型" -c "slobj";
+ text -label  "选择需要匹配到参考物体的点                                     ";
+button -l "点匹配" -c "slpp2";
+text -label  "                                     ";
+text -label  "单轴向匹配                   ";
+button -l "点匹配X轴" -c "tdgcX";
+button -l "点匹配Y轴" -c "tdgcY";
+button -l "点匹配Z轴" -c "tdgcZ";
+setParent ..;
+setParent ..;
+frameLayout -label "表情镜像复制"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+text -label  "选择原始表情物体再加选需要镜像的表情物体（单选）";
+text -label  "如果对象已做过镜像，再次镜像的物体会在原";
+text -label  "始物体的位置                                     ";
+
+
+button -l "开始镜像" -c "copyjx"; 
+ rowColumnLayout -numberOfColumns 2;
+  text -label "对称方向:";
+textField -tx "X" duichen;
+ text -label "复制目标x轴偏移:";
+textField -tx "0" pxzhi;
+ text -label "复制目标Y轴偏移:";
+textField -tx "5" pyzhi;
+ 
+ setParent ..;
+text -label  "                                     ";
+setParent ..;
+setParent ..;
+frameLayout -label "复制权重工具"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+text -label  "请先选中原始模型物体再加选目标物体（单选）";
+
+text -label  "目标物体不可有蒙皮，必须按照顺序，不可越过步骤";
+
+text -label  "                                     ";
+
+text -label  "1原始物体的有关骨骼";button -l "选中骨骼" -c "slguge"; 
+text -label  "2对目标物体蒙皮";button -l "蒙皮" -c "mengpi"; 
+text -label  "3对目标物体复制权重";button -l "复制权重" -c "copyquanzhong"; 
+text -label  "                                     ";
+setParent ..;
+setParent ..;
+frameLayout -label "dkAnim0.97（动画导出脚本）"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+
+button -l "打开插件" -c "dkAnimch"; 
+
+setParent ..;
+setParent ..;
+frameLayout -label "拍屏参数显示工具"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+
+button -l "显示" -c "zwHeadsUpDisplay"; 
+button -l "取消显示" -c "zwHeadsUpDisplayRemove"; 
+
+
+
+setParent ..;
+setParent ..;
+frameLayout -label "烘焙毛发骨骼工具"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+text -label  "选择要烘焙的骨骼根部（多选）";
+text -label  "                   ";
+rowColumnLayout -numberOfColumns 3; 
+text -label  "烘培范围： ";
+//烘培帧默认选项
+global int $pp; 
+$pp = 1;  
+ 
+string $collection1 = `radioCollection`;
+
+    $Matr2 = `radioButton -sl -label "时间轴"`;
+     $Matr3 = `radioButton -sl -label "开始/结束"`; 
+ setParent ..;
+      rowColumnLayout -numberOfColumns 3; 
+radioCollection -edit -select $Matr3 $collection1;
+text -label "       开始:";
+$hh=`textField -en 0 -tx "1" start`;
+text -label  "                   ";
+text -label "       结束:";
+textField -en 0 -tx "10" end;
+text -label  "                   ";
+text -label " 烘焙间隔:";
+textField -tx "1" sample;
+text -label  "帧                 ";
+text -label " 提前缓冲:";
+textField -tx "30" tiqian;
+text -label  "帧                 ";  
+
+ setParent ..; 
+ radioCollection -edit -select $Matr2 $collection1;
+
+  radioButton -edit -onCommand "sjj" $Matr2;  
+    radioButton -edit -onCommand "see" $Matr3; 
+text -label  "请记得修改nucleus startframe";  
+  button -label "烘培" -c "hpz"; 
+ 
+
+text -label  "                                ";
+
+
+text -label  "选择要删除帧的根骨骼（多选）";
+
+button -l "删除帧" -c "dejo";
+ setParent ..;  
+setParent ..;
+setParent ..;
+frameLayout -label "物体批量替换插件" -collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  " 被替换的物体需保留位移选择缩放属性";
+
+
+button -l "载入物体（单选）" -c "slobjcb"; 
+
+
+text -label  " 再选择要被替换的物体（多选）";
+button -l "普通批量替换" -c "cpobj"; 
+button -l "instance批量替换" -c "cpinobj";
+setParent ..;
+setParent ..;
+
+frameLayout -label "物体沿时间烘培工具"-collapsable on -cl 1 -borderStyle "etchedIn";
+columnLayout;
+text -label  "用于物体沿时间复制";
+text -label  "选择要烘焙的物体（单选）";
+text -label  "                   ";
+rowColumnLayout -numberOfColumns 3; 
+text -label  "烘培范围： ";
+//烘培帧默认选项
+global int $wtpp; 
+global int $wtpp2; 
+$wtpp = 1;  
+$wtpp2 = 1; 
+string $wtcollection1 = `radioCollection`;
+
+    $wtMatr2 = `radioButton -sl -label "时间轴"`;
+     $wtMatr3 = `radioButton -sl -label "开始/结束"`; 
+ setParent ..;
+
+rowColumnLayout -numberOfColumns 3; 
+text -label  "复制类型： ";
+ string $wtcollection2 = `radioCollection`;
+
+    $wtMatr4 = `radioButton -sl -label "普通    "`;
+     $wtMatr5 = `radioButton -sl -label "instance"`; 
+ setParent ..;
+      rowColumnLayout -numberOfColumns 3; 
+radioCollection -edit -select $wtMatr3 $wtcollection1;
+text -label "       开始:";
+$wthh=`textField -en 0 -tx "1" wtstart`;
+text -label  "                   ";
+text -label "       结束:";
+textField -en 0 -tx "10" wtend;
+text -label  "                   ";
+text -label " 烘焙间隔:";
+textField -tx "1" wtsample;
+text -label  "帧                 ";
+
+
+
+ setParent ..; 
+ radioCollection -edit -select $wtMatr2 $wtcollection1;
+radioCollection -edit -select $wtMatr4 $wtcollection2;
+  radioButton -edit -onCommand "wtsjj" $wtMatr2;  
+    radioButton -edit -onCommand "wtsee" $wtMatr3; 
+  radioButton -edit -onCommand "wtd1" $wtMatr4;  
+    radioButton -edit -onCommand "wtd2" $wtMatr5; 
+  button -label "烘培" -c "wthpz"; 
+ 
+
+text -label  "                                ";
+
+setParent ..;  
+setParent ..;
+text -label  "                                ";
+text -label  "                                ";
+text -label  "                            ";
+setParent ..;
+setParent ..;
+
+
+string $col2 = `scrollLayout`;
+
+columnLayout -adj 1;
+
+frameLayout -label "自动更新所有贴图" -collapsable on   -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+
+button -l "更新贴图" -c "RefreshComfirm";
+
+
+setParent ..;
+setParent ..;
+frameLayout -label "自动gamma校正"-collapsable on  -cl 1 -borderStyle "etchedIn";
+columnLayout;
+rowLayout -adj 2 -nc 2;
+text -label " 属性路径";
+textField -tx "color;diffuse" channelTF;
+setParent ..; 
+
+rowLayout -adj 2 -nc 2;
+text -label " gamma值";
+floatField -v .4545 gammaFF;
+setParent ..; 
+rowLayout -adj 2 -nc 2; 
+text -label " 操作对象";
+radioButtonGrp -numberOfRadioButtons 3 -l1 "材质" -l2 "灯光" -l3 "全部" -sl 1 -columnWidth3 60 60 60 
+mlRbGrp;
+setParent ..; 
+rowLayout -adj 2 -nc 2; 
+text -label " 选择范围";
+radioButtonGrp -numberOfRadioButtons 2 -l1 "所选" -l2 "全部" -sl 1 -columnWidth2 60 60 slRbGrp;
+setParent ..; 
+rowLayout -adj 2 -nc 2;
+
+button -label "创建连接" -command "doGammaCtrl(`textField -q -tx channelTF`,`floatField -q -v gammaFF`)" ;
+
+button -label "移除全部连接" -command "doRemoveGammaCtrl" ;
+setParent ..; 
+setParent ..; 
+setParent ..; 
+frameLayout -label "自动分割笔刷UV" -collapsable on  -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+text -l "分割方式:";
+radioCollection; 
+$Matr2 = `radioButton -sl -label "2x2"`; 
+$Matr3 = `radioButton -label "3x3"`;
+
+
+radioButton -edit -onCommand "$sys = 4" $Matr2; 
+radioButton -edit -onCommand "$sys = 9" $Matr3;
+
+string $botonaccion = `button -w 50 -h 20 -label "运行" proces`;
+
+
+
+button -edit -command "Seleccionar ($sys)" $botonaccion;
+setParent ..;
+setParent ..;
+frameLayout -label "自动链接摄像机与笔刷" -collapsable on  -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+text -label  "选择要链接的摄像机（单选）";
+button -l "载入摄像机" -c "cast";
+text -label  "                                     ";
+text -label  "链接模式（多选）";
+button -l "所选笔刷" -c "calislst";
+text -label  "     ";
+button -l "全部笔刷" -c "caliallst";
+
+setParent ..;
+setParent ..;
+frameLayout -label "自动摄像机链接天光系统" -collapsable on  -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+text -label  "创建节点并命名为TYM_mia_ex_ph";
+button -l "创建" -c "asmia";
+text -label  "选择要链接的摄像机（可多选）";
+button -l "链接摄像机" -c "cammia";
+text -label  "设置TYM_mia_ex_ph为预置的参数";
+button -l "参数1" -c "miaset";
+
+setParent ..;
+setParent ..;
+frameLayout -label "自动景深层快捷设置" -collapsable on  -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+text -label  "创建Z_depth渲染层";
+button -l "创建" -c "creatzdepth";
+text -label  "添加所有多边形并赋予surfaceshader材质";
+button -l "添加多边形" -c "crsfsh";
+text -label  "添加所有笔刷树叶并赋予Z_d_surf_shuye材质";
+button -l "添加树叶" -c "crsfsh_shuye";
+rowColumnLayout -nc 2 -cw 1 150 -cw 2 50 -cs 2 5 ;
+
+textField -text "遮罩贴图路径" -cc "dk_setRefresh 0" tupian_inname  ;
+
+button -label "自动获取" -c "jc1";
+
+button -label "手动载入遮罩黑白图片" -c "dakaitp";
+button -label "链接" -c "ljtupian";
+setParent ..;
+
+
+
+text -label  "创建环境雾";
+button -l "创建" -c "creathj";
+text -label  "设置默认环境雾的参数，请删除重复";
+button -l "设置" -c "huangjingwu";
+
+setParent ..;
+setParent ..;
+frameLayout -label "创建mix材质球" -collapsable on  -cl 1 -borderStyle "etchedIn";
+columnLayout;
+
+
+text -label  "                                     ";
+
+text -label  "选择模型赋予一个新的mia_material_x材质球 ";
+button -l "创建" -c "cjmix";
+textField -text "贴图路径" -cc "dk_setRefresh 0" tietuname  ;
+
+button -l "载入图片" -c "ljfile" zrtp;
+
+
+setParent ..;
+setParent ..;
+text -label  "                                     ";
+text -label  "                           ";
+setParent ..;
+tabLayout -edit -tabLabel $col1 "绑定动画工具" -tabLabel $col2 "场景渲染工具" $tabs;
+
+showWindow chuan;
+
+window -e -wh 300 450 chuan;

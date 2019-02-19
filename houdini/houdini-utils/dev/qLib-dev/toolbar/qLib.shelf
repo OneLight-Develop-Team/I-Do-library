@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shelfDocument>
+  <!-- This file contains definitions of shelves, toolbars, and tools.
+ It should not be hand-edited when it is being used by the application.
+ Note, that two definitions of the same element are not allowed in
+ a single file. -->
+
+  <toolshelf name="qLib" label="qLib">
+    <memberTool name="AccessShotNode_qL"/>
+    <memberTool name="ToggleViewportBackgroundColor_qL"/>
+    <memberTool name="ToggleViewBackground_qL"/>
+    <memberTool name="RealTimePlayback_qL"/>
+    <memberTool name="ToggleIntegerFrames_qL"/>
+    <memberTool name="ReferenceCopy_qL"/>
+    <memberTool name="AttribDisplayMarkers_qL"/>
+    <memberTool name="ToggleViewportTemplates_qL"/>
+    <memberTool name="ToggleViewportGuides_qL"/>
+    <memberTool name="CrashRecovery_qL"/>
+  </toolshelf>
+
+  <tool name="ReferenceCopy_qL" label="Ref Copy qL" icon="BUTTONS_copy">
+    <helpText><![CDATA[#icon: BUTTONS/copy
+#context: obj
+#type: tool
+
+= Reference Copy qL =
+
+*version 1*
+
+"""Creates a Reference Copy where the reference source is easy to replace.
+---
+Alt-LMB: Use relative path for source operator.
+"""
+
+This function is the same as the original _Reference Copy_ operation,
+but it adds an extra parameter that specifies the source operator name
+where all parameter values are referenced from.
+
+This way the reference source is easy to change.
+
+
+@usage Using Reference Copy
+
+Select node(s) and click the shelf button.
+
+@relnotes Release Notes
+
+_version 1_ ---
+
+2015-01-16:
+    - Added workaround for "assets with editable subnets can't be reference copied" issue
+      (works with qLib nodes only)
+
+2014-04-05:
+    - Added Alt+LMB mode (creates relative path for reference source)
+
+2014-02-14:
+    - Fixed serious bug (worked properly only on frame 1)
+    - Uses `chsop()` now to get OP paths
+
+2013-03-10:
+    - First version.
+]]></helpText>
+    <script scriptType="python"><![CDATA[# do the dunno
+#
+import hou
+import re
+
+def postproc_refcopy(nodepath, srcpath):
+    N = hou.node(nodepath)
+
+    if N:
+
+        # add ref_source parameter
+        #
+        N.addSpareParmTuple(
+            hou.StringParmTemplate(
+                "ref_source", "Ref Source", 1,
+                string_type=hou.stringParmType.NodeReference
+            )
+        )
+
+        N.parm('ref_source').set(srcpath)
+
+        # process linkage expressions
+        #
+        parms = N.parms()
+        for p in parms:
+            try:
+                if True:
+                    for k in p.keyframes():
+                        x = k.expression()
+                        x = re.sub('"\.\./[^/]+', 'chsop("ref_source")+"', x)
+                        k.setExpression(x, hou.exprLanguage.Hscript)
+                        p.setKeyframe(k)
+
+            except Exception as e:
+                print "failed for param '%s'" % p.name()
+
+        # store typename of the creator tool
+        #
+        hou.hscript("opuserdata -n '___toolcount___' -v '%s' %s" % ('1', nodepath, ))
+        hou.hscript("opuserdata -n '___toolid___' -v '%s' %s" % ('ReferenceCopy_qL', nodepath, ))
+
+
+def fixum(node, mode):
+    '''Workaround for the "assets with editable subnets cannot be reference copied" issue.'''
+    try:
+        n = hou.node(node)
+        t = n.type()
+        d = t.definition()
+
+        tn = t.name()
+        # hackish workaround: apply to all qLib nodes
+        #
+        if 'qLib::' in tn and '_ql' in tn:
+            #print "(applying %s to %s)" % (mode, n.path(), )
+
+            if mode=='open':
+                n.allowEditingOfContents()
+                pass
+
+            if mode=='close':
+                n.matchCurrentDefinition()
+                pass
+        else:
+            #print "(skipping %s)" % (n.path(), )
+            pass
+    except:
+        print "oops #1"
+        pass
+
+# main
+#
+sel = [ n.path() for n in hou.selectedNodes() ]
+
+alt = kwargs['shiftclick'] or kwargs['altclick'] or kwargs['ctrlclick']
+
+for S in sel:
+    c = len( hou.hscript( 'opls -d %s*' % S )[0].split() )
+    T = '%s_copy%d' % (S, c)
+
+    try:
+        fixum(S, 'open') # "Allow Editing of Contents" for S
+        hou.hscript('opcp -c %s %s' % (S, T))
+        fixum(S, 'close') # "Match Current Definition" for S and T
+        fixum(T, 'close')
+    except:
+        print "oops #2, %s" % S
+        pass
+
+    if True:
+        srcpath = S
+        if alt:
+            srcpath = hou.node(T).relativePathTo(hou.node(S))
+        postproc_refcopy(T, srcpath)
+
+]]></script>
+  </tool>
+
+  <tool name="AttribDisplayMarkers_qL" label="attr.vis" icon="BUTTONS_displayoptions">
+    <helpText><![CDATA[#icon: BUTTONS/displayoptions
+#context: obj
+#type: tool
+
+= Attrib Display Markers qL =
+
+*version 1*
+
+"""Creates display markers for all the attributes present on the displayed operator.
+----
+Shift-LMB: Clear previously built
+Ctrl-LMB: Clear ALL markers then rebuild
+Ctrl+Shift-LMB: Clear ALL markers
+"""
+
+This function builds visual display markers for all the attributes
+that exist on the currently displayed operator.
+
+(It can be considered as a shortcut to the similar function of the
+[Attr Visualize qL SOP|node:sop/qLib::attr_visualize_ql::1]'s
+_Marker_ section.)
+
+@usage Usage
+
+((LMB)):
+    Builds attribute markers for the current Display SOP.
+    (Existing markers will also be rebuilt.)
+((Shift + LMB)):
+    Clears previously built attribute markers.
+    (Markers not built with this function will be preserved.)
+((Ctrl + LMB)):
+    Clears _all_ markers (made by this tool or otherwise)
+    and rebuilds the attribute marker list.
+((Ctrl + Shift + LMB)) . :
+    Deletes _all_ display markers. _All of them._
+
+
+@related
+    - [Attr Visualize qL SOP|node:sop/qLib::attr_visualize_ql::1]
+    - ...
+
+@usage Using Add Display Markers
+
+Set the Display flag on a node and click the shelf button. Then press
+the `D` key in a Scene View, go to the Markers tab to see the generated
+attribute markers ("Custom" section.)
+
+
+
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+import toolutils
+
+
+def ynreq(msg):
+    return hou.ui.displayMessage(msg, ["Ok", "Cancel"]) == 0
+
+def dispmsg(msg):
+    hou.ui.setStatusMessage(msg)
+
+
+
+def get_current_viewer_name():
+    v = toolutils.sceneViewer()
+    w = "%s.%s.world" % \
+            (v.pane().desktop().name(), \
+            v.name() )
+    return w
+
+
+
+def get_display_sop():
+    v = None
+    try:
+        v = toolutils.sceneViewer()
+        v = v.pwd() # OBJ object
+        v = v.displayNode()
+    except:
+        v = None
+        dispmsg("couldn't get Display (S)OP")
+    return v
+
+
+
+def clear_built_markers(kwargs=None, clearAll=False):
+    if True: #ynreq("Clear %s display markers?" % "ALL" if clearAll else "generated"):
+        for m in hou.hscript("viewoptls")[0].split():
+            if clearAll or '_vis_' in m:
+                print "viewoptrm %s" % m
+                hou.hscript("viewoptrm %s" % m)
+
+
+
+
+
+def build_markers(kwargs=None): # ( was create_markers() )
+    """."""
+
+    type_names = {
+        hou.attribType.Point: "point",
+        hou.attribType.Prim: "prim",
+        hou.attribType.Vertex: "vertex"
+    }
+
+    type_labels = {
+        hou.attribType.Point: "p:",
+        hou.attribType.Prim: "pr:",
+        hou.attribType.Vertex: "vt:"
+    }
+
+    pwd = get_display_sop()
+    if pwd: dispmsg("display OP: %s" % pwd.path())
+    else: return
+
+    type_name  = lambda t: type_names[t]  if t in type_names  else ""
+    type_label = lambda t: type_labels[t] if t in type_labels else ""
+    p  = lambda n: pwd.parm(n).eval()
+    ps = lambda n: pwd.parm(n).eval().strip()
+
+    views = hou.hscript("viewls -n")[0].split()
+    g = pwd.geometry()
+
+    def to_as(attrs):
+        return " ".join( [ a.name() for a in attrs if a.dataType() is not hou.attribData.String ] )
+
+    #force_tx  = ps('force_text').split()
+    #vel_attrs = ps('vel_attribs').split()
+
+    force_tx = 'P Cd uv'.split()
+    vel_attrs = 'v accel'.split()
+
+    scale_v   = 1.0 # vec scale
+    scale_vel = (1/24.0) # velocity scale
+
+    attrs_pt = to_as(g.pointAttribs())
+    attrs_pr = to_as(g.primAttribs())
+    attrs_vtx = to_as(g.vertexAttribs())
+
+    #attrs_display = ps('markers_display').split()
+    #if p('do_markers_display')==0: attrs_display = []
+
+    CS = [
+            (attrs_pt, g.findPointAttrib),
+            (attrs_pr, g.findPrimAttrib),
+            (attrs_vtx, g.findVertexAttrib)
+        ]
+
+    hue = 120.0
+    color = hou.Color()
+
+    for C in CS:
+
+        attrs = C[0].split()
+        find_attr_func = C[1] #g.findPointAttrib
+
+        # add textual version of vector attrs
+        attrs += [ ("text:%s" % v) for v in attrs if find_attr_func(v).size()==3 ]
+        attrs = sorted(attrs)
+
+        for name in attrs:
+
+            tx = "text:" in name
+            name = name.replace("text:", "")
+
+            a = find_attr_func(name)
+            if a and a.dataType() is not hou.attribData.String:
+                opt_name = "_vis_%s_%d" % (name, tx, )
+                size = a.size()
+                is_xn = a.isTransformedAsNormal()
+                is_xv = a.isTransformedAsVector()
+                is_vect = size==3 and not tx # and name not in force_tx
+                as_vel = name in vel_attrs
+                scale = scale_vel if as_vel else scale_v
+    
+                label = "%s%s" % ( type_label(a.type()), name )
+    
+                if is_vect:
+                    label += " [vec."
+                    if as_vel: label += "/v."
+                    if is_xn: label += "; xformed as normal"
+                    if is_xv: label += "; xformed as vector"
+                    label += "]"
+                else:
+                    pass # label += " (num)"
+    
+                print "--- %s: '%s'" % (name, label)
+    
+                # create/update marker
+    
+                hou.hscript('viewoptrm %s' % opt_name)
+                hou.hscript('viewoptadd %s %s' % ('vector' if is_vect else 'text', opt_name))
+    
+                def vos(parm, val):
+                    print ' --- viewoptset %s %s ( %s )' % (opt_name, parm, val)
+                    hou.hscript('viewoptset %s %s ( %s )' % (opt_name, parm, val))
+
+                if True:    
+                    vos('attrib', a.name())
+                    vos('class', type_name(a.type()))
+                    vos('label', '"%s"' % label)
+                    vos('overridecolor', '1')
+
+                    val = 0.85 if is_vect else 0.15
+
+                    color.setHSV((hue, 0.9, val)); vos('color', '%f %f %f' % color.rgb())
+                    color.setHSV((hue, 0.4, val+0.1)); vos('selcolor', '%f %f %f' % color.rgb())
+                    hue += 137.5 * 0.5
+
+                if is_vect:
+                    vos('scale', scale)
+
+                if False: # name in attrs_display:
+                    for view in views:
+                        hou.hscript('viewoptenable %s all +%s' % (view, opt_name))
+                    hue += 137.5/2.0
+
+            else:
+                print "couldn't find attribute %s" % name
+
+    print "done. ------------"
+
+'''
+viewoptset
+    vector_dunno
+        arrow ( 0 )
+        attrib ( N )
+        class ( point )
+        color ( 0 0 1 )
+        icon ( SI_pointNormal )
+        label ( "pr: primN (vector)" )
+        overridecolor ( 0 )
+        scale ( 1 )
+        selcolor ( 0 0.45 1 )
+        visibility ( 1 )
+'''
+
+
+print kwargs
+
+shift = kwargs['shiftclick']
+ctrl  = kwargs['ctrlclick']
+alt   = kwargs['altclick']
+
+clear_built_markers(kwargs, clearAll=ctrl)
+
+if not shift:
+    build_markers(kwargs)
+]]></script>
+  </tool>
+
+  <tool name="ToggleIntegerFrames_qL" label="int.frames" icon="PLAYBAR_editable_keys">
+    <helpText><![CDATA[#icon: PLAYBAR/editable_keys
+#context: obj
+#type: tool
+
+= Toggle Integer Frames qL =
+
+*version 1*
+
+"""Toggle non-integer frame values on the playbar."""
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+
+m = not hou.playbar.usesIntegerFrames()
+hou.playbar.setUseIntegerFrames(m)
+
+hou.ui.setStatusMessage(" ---- Using Integer Frames: %s" % ("ON" if m else "OFF"))
+]]></script>
+  </tool>
+
+  <tool name="ToggleViewportBackgroundColor_qL" label="/backgnd/" icon="COP2_invert">
+    <helpText><![CDATA[#icon: COP2/invert
+#context: obj
+#type: tool
+
+= Cycle Viewport Background Color qL =
+
+*version 1*
+
+"""Cycles between viewport color schemes (dark, grey, light).
+----
+LMB: Cycle background color
+Ctrl-LMB: Reset to black
+Shift-LMB: Reset to grey
+"""
+
+@bugs Limitations
+
+- It might not seem to work for the first time (try clicking again, then)
+
+
+@relnotes Release Notes
+
+_version 1_ ---
+
+2015-02-24:
+    - Added dark/grey/light cycle (H14)
+
+2014-02-14:
+    - First version (in qLib).
+]]></helpText>
+    <script scriptType="python"><![CDATA[import toolutils
+
+bg = None
+
+try:
+    # cycle next bg
+    if kwargs['ctrlclick']: raise
+    bgs = hou.session.bg[:]
+    bgs = bgs[1:]+bgs[:1]
+    if kwargs['shiftclick']: bgs = ['bw', 'light', 'wb']
+    bg = bgs[0]
+    hou.session.bg = bgs
+except:
+    # set up default bg vars
+    hou.session.bg = ['wb', 'bw', 'light']
+    bg = hou.session.bg[0]
+
+bgs = { 'wb':'dark', 'bw':'grey', 'light':'light' }
+
+hou.hscript("viewdisplay -B %s *" % bg)
+hou.ui.setStatusMessage("Cycled background to %s" % bgs[bg].upper() )]]></script>
+  </tool>
+
+  <tool name="RealTimePlayback_qL" label="realtime" icon="PLAYBAR_realtime">
+    <helpText><![CDATA[#icon: PLAYBAR/realtime
+#context: obj
+#type: tool
+
+= Toggle Integer Frames qL =
+
+*version 1*
+
+"""Toggle non-integer frame values on the playbar.
+----
+LMB: Enable real-time playback
+Shift-LMB: Disable real-time playback
+"""
+]]></helpText>
+    <script scriptType="python"><![CDATA[import hou
+
+hou.playbar.setRealTime( not kwargs['shiftclick'] )]]></script>
+  </tool>
+
+  <tool name="ToggleViewportGuides_qL" label="/guides/" icon="NODEFLAGS_origin">
+    <helpText><![CDATA[#icon: IMAGE/view_guides
+#context: obj
+#type: tool
+
+= Toggle Viewport Guides qL =
+
+*version 1*
+
+"""Toggles OP guide display in the viewports."""
+
+@bugs Limitations
+
+- It might behave inconsistently between viewports (and needs to be clicked twice)
+
+
+@relnotes Release Notes
+
+_version 1_ ---
+
+2014-03-20:
+    - First version.
+]]></helpText>
+    <script scriptType="python"><![CDATA[import toolutils
+
+v = toolutils.sceneViewer()
+w = "%s.%s.world" % \
+        (v.pane().desktop().name(), \
+        v.name() )
+#print "view:", w
+
+if not hasattr(hou.session, "guides"):
+    hou.session.guides = True
+
+hou.session.guides = not hou.session.guides
+#hou.hscript("viewdisplay -g %s %s" % ("on" if hou.session.guides else "off", w, ))
+hou.hscript("viewdisplay -g %s *" % ("on" if hou.session.guides else "off", ))
+hou.ui.setStatusMessage("Geometry guides are now %s" % ("DISPLAYED" if hou.session.guides else "OFF") )]]></script>
+  </tool>
+
+  <tool name="ToggleViewportTemplates_qL" label="/templates/" icon="NODEFLAGS_template">
+    <helpText><![CDATA[#icon: NODEFLAGS/template
+#context: obj
+#type: tool
+
+= Toggle Viewport Templates qL =
+
+*version 1*
+
+"""Toggles template geometry display in viewports.
+----
+LMB: Toggle template display
+Shift-LMB: Clear display template flag on all (S)OPs
+"""
+
+@usage Usage
+
+((LMB)):
+    Toggles template display (Display Options -> Guides -> Templated geometry, Selectable templates)
+((Shift + LMB)):
+    Enable template display
+((Ctrl + LMB)):
+    Clears template flag on all (S)OPs within the currently displayed container
+
+
+@related
+    - ...
+
+]]></helpText>
+    <script scriptType="python"><![CDATA[import toolutils
+
+shift = kwargs['shiftclick']
+ctrl  = kwargs['ctrlclick']
+alt   = kwargs['altclick']
+
+
+if ctrl:
+    n = toolutils.sceneViewer()
+    n = n.pwd() # container node
+
+    for c in n.children():
+        try:
+            c.setTemplateFlag(0)
+            c.setSelectableTemplateFlag(0)
+        except:
+            pass
+
+    hou.ui.setStatusMessage("Cleared all display template flags")
+else:
+
+    if not hasattr(hou.session, "templates"):
+        hou.session.templates = True
+
+    hou.session.templates = not hou.session.templates
+
+    if shift: hou.session.templates = True
+
+    t = 'on' if hou.session.templates else 'off'
+    hou.hscript("viewdisplay -T %s -i %s *" % (t, t, ))
+    hou.ui.setStatusMessage("Templates are now %s" % ("DISPLAYED" if hou.session.templates else "OFF") )
+]]></script>
+  </tool>
+
+  <tool name="AccessShotNode_qL" label="::shot::" icon="NETWORKS_scene">
+    <helpText><![CDATA[#icon: COP2/invert
+#context: obj
+#type: tool
+
+= Access: Shot Node qL =
+
+*version 1*
+
+"""Opens a floating parameter panel for scene Shot qL node(s).
+---
+LMB: All Shot and Environment nodes
+Shift-LMB: Only "active" Shot(s) (visible/selectable)
+Alt-LMB: Environment nodes only
+"""
+
+@bugs Limitations
+
+- ...
+
+
+@relnotes Release Notes
+
+_version 1_ ---
+
+2014-10-12:
+    - First version.
+]]></helpText>
+    <script scriptType="python"><![CDATA[import toolutils
+
+
+def show_parms(ops, title="Parameters", kwargs=None):
+    """."""
+    PT = hou.paneTabType.Parm
+    P = None
+    t = None
+
+    for op in ops:
+        if P is None:
+            P = hou.ui.curDesktop().createFloatingPanel(PT)
+            P.setName(title)
+            t = P.panes()[0].tabs()[0]
+        else:
+            t = P.panes()[0].createTab(PT)
+
+        if t:
+            t.setPin(True)
+            t.setCurrentNode(op)
+
+    return P
+
+
+
+ctrl = kwargs['ctrlclick']
+shift = kwargs['shiftclick']
+alt = kwargs['altclick']
+
+is_shot = lambda n: 'qLib::shot_ql' in n.type().name()
+is_env = lambda n: 'qLib::environment_ql' in n.type().name()
+
+# find all Shot qL OPs first
+#
+shots = [ c for c in hou.node('/').allSubChildren()
+    if is_shot(c) or is_env(c) ]
+
+if shift or ctrl:
+    shots = [ n for n in shots if n.isSelectableInViewport() or n.isDisplayFlagSet() ]
+
+if alt:
+    shots = [ n for n in shots if is_env(n) ]
+
+shots = sorted(shots,
+    key=lambda n: '%s %d %d %s' % (n.type().name(),
+        n.isSelectableInViewport(),
+        n.isDisplayFlagSet(),
+        n.name(), )
+    )
+
+show_parms(shots, title="Scene Global(s)", kwargs=kwargs)
+
+]]></script>
+  </tool>
+
+  <tool name="CrashRecovery_qL" label="::recover::" icon="MISC_satchel">
+    <script scriptType="python"><![CDATA[import qlibutils
+
+qlibutils.do_crash_recovery()
+
+]]></script>
+  </tool>
+
+  <tool name="ToggleViewBackground_qL" label="/bg image/" icon="COP2_env">
+    <helpText><![CDATA[#icon: COP2/env
+#context: obj
+#type: tool
+
+= Toggle Viewport Background qL =
+
+*version 1*
+
+"""Toggles background image display in all viewports.
+----
+LMB: Toggle display
+Shift-LMB: ...
+"""
+
+@usage Usage
+
+((LMB)):
+    Toggles background image display (Display Options -> Background -> Display background image)
+((Shift + LMB)):
+    Enable background images
+((Ctrl + LMB)):
+    Disable background images
+
+
+@related
+    - ...
+
+]]></helpText>
+    <script scriptType="python"><![CDATA[import toolutils
+
+shift = kwargs['shiftclick']
+ctrl  = kwargs['ctrlclick']
+alt   = kwargs['altclick']
+
+if not hasattr(hou.session, "viewbg"):
+    hou.session.viewbg = True
+
+hou.session.viewbg = not hou.session.viewbg
+
+if ctrl: hou.session.viewbg = False
+if shift: hou.session.viewbg = True
+
+t = 'on' if hou.session.viewbg else 'off'
+hou.hscript("viewbackground -b %s *" % (t, ))
+hou.ui.setStatusMessage("Viewport background images are now %s" % ("DISPLAYED" if hou.session.viewbg else "OFF") )
+]]></script>
+  </tool>
+</shelfDocument>
